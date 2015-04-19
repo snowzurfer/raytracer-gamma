@@ -1,6 +1,5 @@
 
 #include <vec.h>
-#include <CL/cl.h>
 
 // EPSILON is a tolerance value for floating point roundoff error.
 // It is used in many calculations where we want to err
@@ -8,7 +7,7 @@
 // whether or not a point is inside a solid or not,
 // or whether a point is at least a minimum distance
 // away from another point.
-const float kEPSILON = 1.0e-6f;
+
 
 // Structs definition
 struct Ray
@@ -28,7 +27,7 @@ struct Material
 struct Sphere
 {
   Vec pos;
-  cl_float radius;
+  float radius;
   struct Material material;
 };
 
@@ -62,6 +61,8 @@ void setMatteGlossBalance(struct Material *m, const float glossFactor,
 // was found and the parameter for the distance from the ray's
 // origin to the intersection
 bool raySphere(struct Sphere * sphere, struct Ray *ray, float *t) {
+  const float kEPSILON = 1.0e-6f;
+
   // Calculate the coefficients of the quadratic equation
   //     au^2 + bu + c = 0.
   // Solving this equation gives us the value of u
@@ -69,22 +70,22 @@ bool raySphere(struct Sphere * sphere, struct Ray *ray, float *t) {
   Vec displacement;
   vsub(displacement, ray->dir, sphere->pos);
 
-  const cl_float a = vdot(ray->dir, ray->dir);
-  const cl_float b = 2.0f * vdot(ray->dir, displacement);
-  const cl_float c = (vdot(displacement, displacement)) - (sphere->radius * sphere->radius);
+  const float a = vdot(ray->dir, ray->dir);
+  const float b = 2.0f * vdot(ray->dir, displacement);
+  const float c = (vdot(displacement, displacement)) - (sphere->radius * sphere->radius);
 
   // Calculate the radicand of the quadratic equation solution formula.
   // The radicand must be non-negative for there to be real solutions.
-  const cl_float radicand = (b*b) - (4.0f * a * c);
+  const float radicand = (b*b) - (4.0f * a * c);
   if (radicand >= 0.0) {
     // There are two intersection solutions, one involving
     // +sqrt(radicand), the other -sqrt(radicand).
     // Check both because there are weird special cases,
     // like the camera being inside the sphere,
     // or the sphere being behind the camera (invisible).
-    const cl_float root = sqrt(radicand);
-    const cl_float denom = 2.0f * a;
-    const cl_float u[2] = {
+    const float root = sqrt(radicand);
+    const float denom = 2.0f * a;
+    const float u[2] = {
       (-b + root) / denom,
       (-b - root) / denom
     };

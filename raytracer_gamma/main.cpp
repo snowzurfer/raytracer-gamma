@@ -108,8 +108,8 @@ int main(int argc, char** argv)
   float *hC = (float *)calloc(LENGTH, sizeof(float));
 
   // Define the scene
-  const int kScreenWidth = 800;
-  const int kScreenHeight = 600;
+  const unsigned int kScreenWidth = 800;
+  const unsigned int kScreenHeight = 600;
 
   // Colours
   Vec whiteCol;
@@ -123,7 +123,7 @@ int main(int argc, char** argv)
   setMatteGlossBalance(&ballMaterial1, 0.6f, &bm1Matte, &bm1Gloss);
 
   // Setup spheres
-  int sphNum = 1;
+  unsigned int sphNum = 1;
   struct Sphere *hSpheres = 
     (struct Sphere *)calloc(sphNum, sizeof(struct Sphere));
   hSpheres[0].material = ballMaterial1;
@@ -131,7 +131,7 @@ int main(int argc, char** argv)
   hSpheres[0].radius = 2.f;
 
   // Setup light sources
-  int lgtNum = 1;
+  unsigned int lgtNum = 1;
   struct Light *hLights = 
     (struct Light *)calloc(lgtNum, sizeof(struct Light));
   vinit(hLights[0].pos, 0.f, 6.f, -4.f);
@@ -211,7 +211,7 @@ int main(int argc, char** argv)
 
 
   // Load the kernel code
-  std::ifstream sourceFstream("kernel.cl");
+  std::ifstream sourceFstream("raytrace_kernel.cl");
   std::string source((std::istreambuf_iterator<char>(sourceFstream)),
     std::istreambuf_iterator<char>());
 
@@ -225,7 +225,7 @@ int main(int argc, char** argv)
 
 
   // Compile the program
-  err = clBuildProgram(program, 0, NULL, NULL, NULL, NULL);
+  err = clBuildProgram(program, 0, NULL, "-I C:\Drive\Alberto\Projects\Code\C++\raytracer_gamma\raytracer_gamma ", NULL, NULL);
   // If there were compilation errors
   if (err != CL_SUCCESS) {
     // Print out compilation log
@@ -244,8 +244,8 @@ int main(int argc, char** argv)
 
 
   // Create the kernel
-  cl_kernel koVadd;
-  koVadd = clCreateKernel(program, "vadd", &err);
+  cl_kernel koRTG;
+  koRTG = clCreateKernel(program, "raytrace", &err);
   checkError(err, "Creating kernel");
 
 
@@ -262,12 +262,18 @@ int main(int argc, char** argv)
   cl_mem dC = clCreateBuffer(gpuContext, CL_MEM_WRITE_ONLY,
     sizeof(float)* count, NULL, &err);
   checkError(err, "Creating buffer C");
+  
 
   // Create the list of spheres and lights in device memory
   cl_mem dSpheres = clCreateBuffer(gpuContext, CL_MEM_READ_WRITE,
     sizeof(struct Sphere) * sphNum, NULL, &err);
+  checkError(err, "Creating buffer for spheres");
   cl_mem dLights = clCreateBuffer(gpuContext, CL_MEM_READ_WRITE,
     sizeof(struct Light) * lgtNum, NULL, &err);
+  checkError(err, "Creating buffer for lights");
+  cl_mem dPixelBuffer = clCreateBuffer(gpuContext, CL_MEM_WRITE_ONLY,
+    kScreenWidth * kScreenHeight *sizeof(cl_float3), NULL, &err);
+  checkError(err, "Creating buffer for pixels");
 
   // Write data from host into device memory (fill the buffers with
   // the host arrays)
@@ -287,10 +293,13 @@ int main(int argc, char** argv)
 
 
   // Set kernel arguments
-  err = clSetKernelArg(koVadd, 0, sizeof(cl_mem), &dA);
-  err |= clSetKernelArg(koVadd, 1, sizeof(cl_mem), &dB);
-  err |= clSetKernelArg(koVadd, 2, sizeof(cl_mem), &dC);
-  err |= clSetKernelArg(koVadd, 3, sizeof(unsigned int), &count);
+  err = clSetKernelArg(koRTG, 0, sizeof(cl_mem), &dSpheres);
+  err |= clSetKernelArg(koRTG, 1, sizeof(unsigned int), &sphNum);
+  err |= clSetKernelArg(koRTG, 2, sizeof(cl_mem), &dLights);
+  err |= clSetKernelArg(koRTG, 3, sizeof(unsigned int), &lgtNum);
+  err |= clSetKernelArg(koRTG, 4, sizeof(unsigned int), &kScreenWidth);
+  err |= clSetKernelArg(koRTG, 5, sizeof(unsigned int), &kScreenHeight);
+  err |= clSetKernelArg(koRTG, 6, sizeof(cl_mem), &dPixelBuffer);
   checkError(err, "Setting kernel arguments");
 
   /*double rtime = wtime();*/
@@ -298,7 +307,7 @@ int main(int argc, char** argv)
   // Execute the kernel over the entire range of our 1d input data set
   // letting the OpenCL runtime choose the work-group size
   size_t globalNumElements = count;
-  err = clEnqueueNDRangeKernel(commandsGPU, koVadd, 1, NULL,
+  err = clEnqueueNDRangeKernel(commandsGPU, koRTG, 1, NULL,
     &globalNumElements, NULL, 0, NULL, NULL);
   checkError(err, "Enqueueing kernel");
 
@@ -311,7 +320,7 @@ int main(int argc, char** argv)
   printf("\nThe kernel ran in %lf seconds\n", rtime);*/
 
   // Read back the results from the device memory
-  err = clEnqueueReadBuffer(commandsGPU, dC, CL_FALSE, 0,
+  /*err = clEnqueueReadBuffer(commandsGPU, dC, CL_FALSE, 0,
     sizeof(float)* count, hC, 0, NULL, NULL);
   // If the reading operation didn't complete successfully
   if (err != CL_SUCCESS) {
@@ -319,13 +328,13 @@ int main(int argc, char** argv)
 
     // Exit
     exit(1);
-  }
+  }*/
 
   // Test the results
   unsigned int correctResNum = 0;
   float tmp;
 
-  for (int i = 0; i < count; i++) {
+  /*for (int i = 0; i < count; i++) {
     tmp = hA[i] + hB[i];     // assign element i of a+b to tmp
     tmp -= hC[i];            // compute deviation of expected and output result
     if (tmp*tmp < TOL*TOL) {  // correct if square deviation is less than tolerance squared
@@ -335,20 +344,21 @@ int main(int argc, char** argv)
       printf(" tmp %f h_a %f h_b %f h_c %f \n", tmp, hA[i],
         hB[i], hC[i]);
     }
-  }
+  }*/
 
   // Summarise results
   printf("C = A+B:  %d out of %d results were correct.\n", correctResNum,
     count);
 
   // Cleanup
+  clReleaseMemObject(dPixelBuffer);
   clReleaseMemObject(dLights);
   clReleaseMemObject(dSpheres);
   clReleaseMemObject(dA);
   clReleaseMemObject(dB);
   clReleaseMemObject(dC);
   clReleaseProgram(program);
-  clReleaseKernel(koVadd);
+  clReleaseKernel(koRTG);
   clReleaseCommandQueue(commandsGPU);
   clReleaseContext(gpuContext);
   // ... Also on host

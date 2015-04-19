@@ -1,3 +1,8 @@
+#define GPU_KERNEL
+
+#include "vec.h"
+#include "raytrace.h"
+
 __kernel void vadd( 
    __global float* a, 
    __global float* b,       
