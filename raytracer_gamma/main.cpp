@@ -7,6 +7,7 @@
 #include "err_code.h"
 #include <fstream>
 #include <algorithm>
+#include <raytracer.h>
 
 #ifdef __APPLE__
 #include <OpenCL/opencl.h>
@@ -105,6 +106,43 @@ int main(int argc, char** argv)
   float *hA = (float *)calloc(LENGTH, sizeof(float));
   float *hB = (float *)calloc(LENGTH, sizeof(float));
   float *hC = (float *)calloc(LENGTH, sizeof(float));
+
+  // Define the scene
+  const int kScreenWidth = 800;
+  const int kScreenHeight = 600;
+
+  // Colours
+  Vec whiteCol;
+  vinit(whiteCol, 1.f, 1.f, 1.f);
+ 
+  // Setup materials
+  struct Material ballMaterial1; // White
+  Vec bm1Gloss; vassign(bm1Gloss, whiteCol);
+  Vec bm1Matte; vassign(bm1Matte, whiteCol);
+  setMatOpacity(&ballMaterial1, 1.f);
+  setMatteGlossBalance(&ballMaterial1, 0.6f, &bm1Matte, &bm1Gloss);
+
+  // Setup shperes
+  int sphNum = 1;
+  struct Sphere *spheres = 
+    (struct Sphere *)calloc(sphNum, sizeof(struct Sphere));
+  spheres[0].material = ballMaterial1;
+  vinit(spheres[0].pos, 2.f, 0.f, -5.f);
+  spheres[0].radius = 2.f;
+
+  // Setup light sources
+  int lgtNum = 1;
+  struct Light *lights = 
+    (struct Light *)calloc(lgtNum, sizeof(struct Light));
+  vinit(lights[0].pos, 0.f, 6.f, -4.f);
+  vassign(lights[0].col, whiteCol);
+
+  //struct Spher
+
+  size_t globalWorkSize = kScreenWidth * kScreenHeight;
+
+
+
 
   // Fill vectors a and b with random float values
   int count = LENGTH;
@@ -286,6 +324,8 @@ int main(int argc, char** argv)
 
 
   free(pixels);
+  free(lights);
+  free(spheres);
 
   return 0;
 }

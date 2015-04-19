@@ -20,14 +20,14 @@ struct Ray
 
 struct Material
 {
-  Vec colour;
-  float reflectivity;
-  float refractivity;
+  Vec matteColour;
+  Vec glossColour;
+  float opacity;
 };
 
 struct Sphere
 {
-  Vec origin;
+  Vec pos;
   cl_float radius;
   struct Material material;
 };
@@ -35,10 +35,29 @@ struct Sphere
 struct Light
 {
   Vec pos;
-  Vec dir;
-  Vec colour;
+  /*Vec dir*/;
+  Vec col;
 };
 
+void setMatMatte(struct Material *m, const Vec *col) {
+  vassign(m->matteColour, *col);
+}
+void setMatGloss(struct Material *m, const Vec *col) {
+  vassign(m->glossColour, *col);
+}
+void setMatOpacity(struct Material *m, const float opacity) {
+  m->opacity = opacity;
+}
+void setMatteGlossBalance(struct Material *m, const float glossFactor, 
+  const Vec *matte, const Vec *gloss) 
+{
+  // Scale the glossy and matte parts of reflected light 
+  // so that an object does not reflect more light than hits it.
+  Vec newMatte; vsmul(newMatte, (1.0 - glossFactor), *matte);
+  setMatMatte(m, matte);
+  Vec newGloss; vsmul(newGloss, glossFactor, *gloss);
+  setMatGloss(m, gloss);
+}
 // Intersection of a sphere with a ray; it returns if the collision
 // was found and the parameter for the distance from the ray's
 // origin to the intersection
@@ -48,7 +67,7 @@ bool raySphere(struct Sphere * sphere, struct Ray *ray, float *t) {
   // Solving this equation gives us the value of u
   // for any intersection points.
   Vec displacement;
-  vsub(displacement, ray->dir, sphere->origin);
+  vsub(displacement, ray->dir, sphere->pos);
 
   const cl_float a = vdot(ray->dir, ray->dir);
   const cl_float b = 2.0f * vdot(ray->dir, displacement);
@@ -86,8 +105,3 @@ bool raySphere(struct Sphere * sphere, struct Ray *ray, float *t) {
   }
 
 }
-
-
-
-
-// EO Struct
