@@ -122,20 +122,20 @@ int main(int argc, char** argv)
   setMatOpacity(&ballMaterial1, 1.f);
   setMatteGlossBalance(&ballMaterial1, 0.6f, &bm1Matte, &bm1Gloss);
 
-  // Setup shperes
+  // Setup spheres
   int sphNum = 1;
-  struct Sphere *spheres = 
+  struct Sphere *hSpheres = 
     (struct Sphere *)calloc(sphNum, sizeof(struct Sphere));
-  spheres[0].material = ballMaterial1;
-  vinit(spheres[0].pos, 2.f, 0.f, -5.f);
-  spheres[0].radius = 2.f;
+  hSpheres[0].material = ballMaterial1;
+  vinit(hSpheres[0].pos, 2.f, 0.f, -5.f);
+  hSpheres[0].radius = 2.f;
 
   // Setup light sources
   int lgtNum = 1;
-  struct Light *lights = 
+  struct Light *hLights = 
     (struct Light *)calloc(lgtNum, sizeof(struct Light));
-  vinit(lights[0].pos, 0.f, 6.f, -4.f);
-  vassign(lights[0].col, whiteCol);
+  vinit(hLights[0].pos, 0.f, 6.f, -4.f);
+  vassign(hLights[0].col, whiteCol);
 
   //struct Spher
 
@@ -151,6 +151,12 @@ int main(int argc, char** argv)
     hB[i] = rand() / (float)RAND_MAX;
   }
 
+
+
+
+
+
+
   cl_uint numPlatforms;
 
   // Find number of platforms
@@ -161,10 +167,16 @@ int main(int argc, char** argv)
     return EXIT_FAILURE;
   }
 
+
+
+
   // Get all platforms
   cl_platform_id *platform = (cl_platform_id *)malloc(sizeof(cl_platform_id)* numPlatforms);
   err = clGetPlatformIDs(numPlatforms, platform, NULL);
   checkError(err, "Getting platforms");
+
+
+
 
   // Define an ID for the device
   cl_device_id deviceId = 0;
@@ -180,25 +192,37 @@ int main(int argc, char** argv)
   //err = output_device_info(deviceId);
   //checkError(err, "Printing device output");
 
-  std::ifstream sourceFstream("kernel.cl");
-  std::string source((std::istreambuf_iterator<char>(sourceFstream)),
-    std::istreambuf_iterator<char>());
+
 
   // Create a context for the GPU
   cl_context gpuContext;
   gpuContext = clCreateContext(NULL, 1, &deviceId, NULL, NULL, &err);
   checkError(err, "Creating context");
 
+
+
+
   // Create a command queue
   cl_command_queue commandsGPU;
   commandsGPU = clCreateCommandQueue(gpuContext, deviceId, NULL, &err);
   checkError(err, "Creating command queue");
+
+
+
+
+  // Load the kernel code
+  std::ifstream sourceFstream("kernel.cl");
+  std::string source((std::istreambuf_iterator<char>(sourceFstream)),
+    std::istreambuf_iterator<char>());
 
   // Create a program from the source
   const char* str = source.c_str();
   cl_program program;
   program = clCreateProgramWithSource(gpuContext, 1, &str, NULL, &err);
   checkError(err, "Creating program");
+
+
+
 
   // Compile the program
   err = clBuildProgram(program, 0, NULL, NULL, NULL, NULL);
@@ -216,10 +240,17 @@ int main(int argc, char** argv)
     return EXIT_FAILURE;
   }
 
+
+
+
   // Create the kernel
   cl_kernel koVadd;
   koVadd = clCreateKernel(program, "vadd", &err);
   checkError(err, "Creating kernel");
+
+
+
+
 
   // Create a, b, and c arrays device memory buffers
   cl_mem dA = clCreateBuffer(gpuContext, CL_MEM_READ_ONLY,
@@ -232,14 +263,28 @@ int main(int argc, char** argv)
     sizeof(float)* count, NULL, &err);
   checkError(err, "Creating buffer C");
 
+  // Create the list of spheres and lights in device memory
+  cl_mem dSpheres = clCreateBuffer(gpuContext, CL_MEM_READ_WRITE,
+    sizeof(struct Sphere) * sphNum, NULL, &err);
+  cl_mem dLights = clCreateBuffer(gpuContext, CL_MEM_READ_WRITE,
+    sizeof(struct Light) * lgtNum, NULL, &err);
+
   // Write data from host into device memory (fill the buffers with
   // the host arrays)
-  err = clEnqueueWriteBuffer(commandsGPU, dA, CL_TRUE, 0,
+  err = clEnqueueWriteBuffer(commandsGPU, dA, CL_FALSE, 0,
     sizeof(float)* count, hA, 0, NULL, NULL);
   checkError(err, "Copying hA into dA");
-  err = clEnqueueWriteBuffer(commandsGPU, dB, CL_TRUE, 0,
+  err = clEnqueueWriteBuffer(commandsGPU, dB, CL_FALSE, 0,
     sizeof(float)* count, hB, 0, NULL, NULL);
   checkError(err, "Copying hB into dB");
+  err = clEnqueueWriteBuffer(commandsGPU, dSpheres, CL_FALSE, 0,
+    sizeof(struct Sphere) * sphNum, hSpheres, 0, NULL, NULL);
+  checkError(err, "Copying hSperes in dSpheres");
+  err = clEnqueueWriteBuffer(commandsGPU, dLights, CL_FALSE, 0,
+    sizeof(struct Light) * lgtNum, hLights, 0, NULL, NULL);
+  checkError(err, "Copying hLights into dLights");
+
+
 
   // Set kernel arguments
   err = clSetKernelArg(koVadd, 0, sizeof(cl_mem), &dA);
@@ -297,6 +342,8 @@ int main(int argc, char** argv)
     count);
 
   // Cleanup
+  clReleaseMemObject(dLights);
+  clReleaseMemObject(dSpheres);
   clReleaseMemObject(dA);
   clReleaseMemObject(dB);
   clReleaseMemObject(dC);
@@ -305,6 +352,8 @@ int main(int argc, char** argv)
   clReleaseCommandQueue(commandsGPU);
   clReleaseContext(gpuContext);
   // ... Also on host
+  free(hLights);
+  free(hSpheres);
   free(hA);
   free(hB);
   free(hC);
@@ -321,11 +370,9 @@ int main(int argc, char** argv)
   }
 
   savePPM(pixels, "testPPM.ppm", kImageWidth, kImageHeight);
-
-
   free(pixels);
-  free(lights);
-  free(spheres);
+
+ 
 
   return 0;
 }
