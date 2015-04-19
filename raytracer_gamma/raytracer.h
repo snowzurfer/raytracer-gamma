@@ -54,9 +54,9 @@ void setMatteGlossBalance(struct Material *m, const float glossFactor,
   // Scale the glossy and matte parts of reflected light 
   // so that an object does not reflect more light than hits it.
   Vec newMatte; vsmul(newMatte, (1.0 - glossFactor), *matte);
-  setMatMatte(m, matte);
+  setMatMatte(m, &newMatte);
   Vec newGloss; vsmul(newGloss, glossFactor, *gloss);
-  setMatGloss(m, gloss);
+  setMatGloss(m, &newGloss);
 }
 // Intersection of a sphere with a ray; it returns if the collision
 // was found and the parameter for the distance from the ray's
