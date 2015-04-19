@@ -142,6 +142,10 @@ int main(int argc, char** argv)
   //err = output_device_info(deviceId);
   //checkError(err, "Printing device output");
 
+  std::ifstream sourceFstream("kernel.cl");
+  std::string source((std::istreambuf_iterator<char>(sourceFstream)),
+    std::istreambuf_iterator<char>());
+
   // Create a context for the GPU
   cl_context gpuContext;
   gpuContext = clCreateContext(NULL, 1, &deviceId, NULL, NULL, &err);
@@ -153,8 +157,9 @@ int main(int argc, char** argv)
   checkError(err, "Creating command queue");
 
   // Create a program from the source
+  const char* str = source.c_str();
   cl_program program;
-  program = clCreateProgramWithSource(gpuContext, 1, &KernelSource, NULL, &err);
+  program = clCreateProgramWithSource(gpuContext, 1, &str, NULL, &err);
   checkError(err, "Creating program");
 
   // Compile the program
