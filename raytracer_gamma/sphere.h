@@ -1,6 +1,7 @@
 // Ray struct header file
 
 #include <CL/cl.h>
+#include <material.h>
 
 struct Sphere
 {
@@ -17,5 +18,6 @@ struct Sphere
 
   cl_float3 origin;
   cl_float radius;
+  Material material;
 };
 // EO Struct
