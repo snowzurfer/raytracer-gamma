@@ -27,6 +27,7 @@ extern int output_device_info(cl_device_id);
 const int kImageHeight = 600;
 const int kImageWidth = 800;
 
+
 // Structure representing a pixel
 struct RGB
 {
@@ -84,19 +85,6 @@ void savePPM(const RGB *pixels, const char *filename, const int width, const int
 };
 
 
-const char *KernelSource = "\n" \
-"__kernel void vadd(                                                 \n" \
-"   __global float* a,                                                  \n" \
-"   __global float* b,                                                  \n" \
-"   __global float* c,                                                  \n" \
-"   const unsigned int count)                                           \n" \
-"{                                                                      \n" \
-"   int i = get_global_id(0);                                           \n" \
-"   if(i < count)                                                       \n" \
-"       c[i] = a[i] + b[i];                                             \n" \
-"}                                                                      \n" \
-"\n";
-
 int main(int argc, char** argv)
 {
   // Error code returned from openCL calls
@@ -110,6 +98,10 @@ int main(int argc, char** argv)
   // Define the scene
   const unsigned int kScreenWidth = 800;
   const unsigned int kScreenHeight = 600;
+  float zoomFactor = 2.5f;
+  float aliasFactor = 1.f;
+
+  size_t globalWorkSize = kScreenWidth * kScreenHeight;
 
   // Colours
   Vec whiteCol;
@@ -136,10 +128,6 @@ int main(int argc, char** argv)
     (struct Light *)calloc(lgtNum, sizeof(struct Light));
   vinit(hLights[0].pos, 0.f, 6.f, -4.f);
   vassign(hLights[0].col, whiteCol);
-
-  //struct Spher
-
-  size_t globalWorkSize = kScreenWidth * kScreenHeight;
 
 
 
@@ -299,28 +287,42 @@ int main(int argc, char** argv)
   err |= clSetKernelArg(koRTG, 3, sizeof(unsigned int), &lgtNum);
   err |= clSetKernelArg(koRTG, 4, sizeof(unsigned int), &kScreenWidth);
   err |= clSetKernelArg(koRTG, 5, sizeof(unsigned int), &kScreenHeight);
-  err |= clSetKernelArg(koRTG, 6, sizeof(cl_mem), &dPixelBuffer);
+  err |= clSetKernelArg(koRTG, 6, sizeof(float), &zoomFactor);
+  err |= clSetKernelArg(koRTG, 7, sizeof(float), &aliasFactor);
+  err |= clSetKernelArg(koRTG, 8, sizeof(cl_mem), &dPixelBuffer);
   checkError(err, "Setting kernel arguments");
 
   /*double rtime = wtime();*/
 
   // Execute the kernel over the entire range of our 1d input data set
   // letting the OpenCL runtime choose the work-group size
-  size_t globalNumElements = count;
   err = clEnqueueNDRangeKernel(commandsGPU, koRTG, 1, NULL,
-    &globalNumElements, NULL, 0, NULL, NULL);
+    &globalWorkSize, NULL, 0, NULL, NULL);
   checkError(err, "Enqueueing kernel");
 
   // Wait for the commands in the queue to be executed
   err = clFinish(commandsGPU);
   checkError(err, "Waiting for commands to finish");
 
+
+
+
+
+
+
+
+
+
+
   // Print execution time
   /*rtime = wtime() - rtime;
   printf("\nThe kernel ran in %lf seconds\n", rtime);*/
 
   // Read back the results from the device memory
-  /*err = clEnqueueReadBuffer(commandsGPU, dC, CL_FALSE, 0,
+  // Create a buffer of pixels
+  /*cl_float4 *dst
+
+  err = clEnqueueReadBuffer(commandsGPU, dC, CL_FALSE, 0,
     sizeof(float)* count, hC, 0, NULL, NULL);
   // If the reading operation didn't complete successfully
   if (err != CL_SUCCESS) {

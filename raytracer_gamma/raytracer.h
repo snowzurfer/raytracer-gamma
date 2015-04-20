@@ -8,9 +8,6 @@
 // or whether a point is at least a minimum distance
 // away from another point.
 
-const int kMaxTraceDepth = 2;
-const float kMaxRenderDist = 1000.f;
-
 // Structs definition
 struct Ray
 {
@@ -123,11 +120,13 @@ bool raySphere(struct Sphere * sphere, struct Ray *ray, float *t) {
 
 }
 
-// Calculates eventual intersectionof ray with the scene and returns
+// Calculates eventual intersection of ray with the scene and returns
 // the intersection a populated intersection object
 bool calcIntersection(struct Sphere *spheres, const unsigned int sphNum,
 struct Ray *ray, struct Intersection *intersection)
 {
+  const float kMaxRenderDist = 1000.f;
+
   float minT = kMaxRenderDist;
   bool found = false;
 
@@ -221,10 +220,9 @@ bool hasClearLineOfSight(struct Sphere *spheres, const unsigned int sphNum,
   ray.origin = *ptA;
 
   // Intersection to be returned from the function
-  struct Intersection *closest =
-    (struct Intersection *)calloc(1, sizeof(struct Intersection));
+  struct Intersection closest;
   // For each object in the scene
-  if (calcIntersection(spheres, sphNum, &ray, closest)) {
+  if (calcIntersection(spheres, sphNum, &ray, &closest)) {
 
     // We found the closest intersection, but it is only
     // a blocker if it is closer to point1 than point2 is.
@@ -232,17 +230,13 @@ bool hasClearLineOfSight(struct Sphere *spheres, const unsigned int sphNum,
     // point2, there is nothing on this object blocking
     // the line of sight.
 
-    if (closest->squaredDist < squaredDistGap) {
+    if (closest.squaredDist < squaredDistGap) {
       // We found a surface that is definitely blocking
       // the line of sight.  No need to keep looking!
-
-      free(closest);
 
       return false;
     }
   }
-
-  free(closest);
 
   // We couldn't find any objects blocking the path
   return true;
@@ -304,29 +298,30 @@ Vec rayTrace(struct Sphere *spheres, const unsigned int sphNum,
             struct Ray *ray, struct Material *refractiveMaterial,
             int traceDepth)
 {
+  const int kMaxTraceDepth = 2;
+
   // Colour to be computed and returned
   Vec colourSum; vinit(colourSum, 0.f, 0.f, 0.f);
 
   // Intersection to be returned from the function
-  struct Intersection *intersection =
-    (struct Intersection *)calloc(1, sizeof(struct Intersection));
-  if (calcIntersection(spheres, sphNum, ray, intersection)) {
+  struct Intersection intersection;
+  if (calcIntersection(spheres, sphNum, ray, &intersection)) {
     // Check for end of recursion condition
     if (traceDepth <= kMaxTraceDepth) {
       // If the ray still has significant intensity
       if (isSignificant(&ray->intensity)) {
         // Calculate the opacity and transparency available
         // of the light ray.
-        const float opacity = intersection->object->material.opacity;
+        const float opacity = intersection.object->material.opacity;
         const float transparency = 1.f - opacity;
 
         // If the object is opaque
         if (opacity > 0.f) {
           // Calculate matte colour
-          Vec calcTemp; vmul(calcTemp, ray->intensity, intersection->object->material.matteColour);
+          Vec calcTemp; vmul(calcTemp, ray->intensity, intersection.object->material.matteColour);
           vsmul(calcTemp, opacity, calcTemp);
           Vec matteCalcResult = calculateMatte(spheres, sphNum, lights,
-            lgtNum, intersection);
+            lgtNum, &intersection);
 
           vmul(calcTemp, matteCalcResult, calcTemp);
 
@@ -335,15 +330,11 @@ Vec rayTrace(struct Sphere *spheres, const unsigned int sphNum,
         }
       }
     }
-
   }
   else {
-    // Clear memory
-    free(intersection);
-
     // Return background colour
-    Vec colour; vmul(colour, ray->intensity, refractiveMaterial->matteColour)
-    return colour;
+    vmul(colourSum, ray->intensity, refractiveMaterial->matteColour)
   }
 
+  return colourSum;
 }
