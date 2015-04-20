@@ -81,10 +81,10 @@ bool raySphere(struct Sphere * sphere, struct Ray *ray, float *t) {
   // Solving this equation gives us the value of u
   // for any intersection points.
   Vec displacement;
-  vsub(displacement, ray->dir, sphere->pos);
+  vsub(displacement, ray->origin, sphere->pos);
 
   const float a = vdot(ray->dir, ray->dir);
-  const float b = 2.0f * vdot(ray->dir, displacement);
+  const float b = 2.0f * (vdot(ray->dir, displacement));
   const float c = (vdot(displacement, displacement)) - (sphere->radius * sphere->radius);
 
   // Calculate the radicand of the quadratic equation solution formula.
@@ -113,11 +113,9 @@ bool raySphere(struct Sphere * sphere, struct Ray *ray, float *t) {
       *t = u[1];
       return true;
     }
-
-
-    return false;
   }
 
+  return false;
 }
 
 // Calculates eventual intersection of ray with the scene and returns
@@ -153,6 +151,7 @@ struct Ray *ray, struct Intersection *intersection)
         intersection->squaredDist = vdot(dist, dist);
 
         found = true;
+        intersection->object = (spheres + i);
       }
     }
   }

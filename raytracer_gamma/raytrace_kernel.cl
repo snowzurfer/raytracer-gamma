@@ -41,7 +41,7 @@ __kernel void raytrace(
 	setMatteGlossBalance(&bgMaterial, 0.f, &black, &black);
 	
 	// For each sample to be taken
-	for(int i = 0; i < kAliasFactor; ++i) {
+	/*for(int i = 0; i < kAliasFactor; ++i) {
 		for(int j = 0; j < kAliasFactor; ++j) {
 			// Calculate the direction of the ray
 			float x = kPxWorldX + (float)(((float)j) * kAliasFactorInv);
@@ -63,7 +63,7 @@ __kernel void raytrace(
 			// Compute the average
 			pixelCol += (float4Samplecol * kSamplesTotinv);
 		}
-	}
+	}*/
 	
 	// Write result in destination buffer
 	dst[gid] = pixelCol;

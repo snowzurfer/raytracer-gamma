@@ -98,7 +98,7 @@ int main(int argc, char** argv)
   // Define the scene
   const unsigned int kScreenWidth = 800;
   const unsigned int kScreenHeight = 600;
-  float zoomFactor = 2.5f;
+  float zoomFactor = -2.5f;
   float aliasFactor = 1.f;
 
   size_t globalWorkSize = kScreenWidth * kScreenHeight;
@@ -119,8 +119,8 @@ int main(int argc, char** argv)
   struct Sphere *hSpheres = 
     (struct Sphere *)calloc(sphNum, sizeof(struct Sphere));
   hSpheres[0].material = ballMaterial1;
-  vinit(hSpheres[0].pos, 2.f, 0.f, -5.f);
-  hSpheres[0].radius = 2.f;
+  vinit(hSpheres[0].pos, 0.f, 0.f, -10.f);
+  hSpheres[0].radius = 3.f;
 
   // Setup light sources
   unsigned int lgtNum = 1;
@@ -260,7 +260,7 @@ int main(int argc, char** argv)
     sizeof(struct Light) * lgtNum, NULL, &err);
   checkError(err, "Creating buffer for lights");
   cl_mem dPixelBuffer = clCreateBuffer(gpuContext, CL_MEM_WRITE_ONLY,
-    kScreenWidth * kScreenHeight *sizeof(cl_float3), NULL, &err);
+    kScreenWidth * kScreenHeight *sizeof(cl_float4), NULL, &err);
   checkError(err, "Creating buffer for pixels");
 
   // Write data from host into device memory (fill the buffers with
@@ -304,9 +304,77 @@ int main(int argc, char** argv)
   err = clFinish(commandsGPU);
   checkError(err, "Waiting for commands to finish");
 
+  printf("Size of vec3: %d", sizeof(Vec));
+
+  // Image
+  float *imagePtr = (float *)malloc(globalWorkSize * sizeof(Vec));
 
 
+  // Screen in world coordinates
+  const float kImageWorldWidth = 16.f;
+  const float kImageWorldHeight = 12.f;
 
+  // Amount to increase each step for the ray direction
+  const float kRayXStep = kImageWorldWidth / ((float)kImageWidth);
+  const float kRayYStep = kImageWorldHeight / ((float)kImageHeight);
+
+  // Variables holding the current step in world coordinates
+  //float rayX = 0.f, rayY = 0.f;
+
+  for (int y = 0; y < kImageHeight * kImageWidth; ++y) {
+      // Retrieve the global ID of the kernel
+      const unsigned gid = y;
+
+      // Calculate inverse of aliasFactor
+      const float kAliasFactorInv = 1.f / aliasFactor;
+      // Calculate total size of samples to be taken
+      const float kSamplesTot = aliasFactor * aliasFactor;
+      // Also its inverse
+      const cl_float kSamplesTotinv = 1.f / kSamplesTot;
+
+      // Calculate world position of pixel being currently worked on
+      const float kPxWorldX = (((float)(gid % kImageWidth) - (kImageWidth * 0.5f))) * kRayXStep;
+      const float kPxWorldY = ((kImageHeight *0.5f) - ((float)(gid / kImageWidth))) * kRayYStep;
+
+      // The ray to be shot. The vantage point (camera) is at the origin,
+      // and its intensity is maximum
+      struct Ray ray; vinit(ray.origin, 0.f, 0.f, 0.f); vinit(ray.intensity, 1.f, 1.f, 1.f);
+
+      // The colour of the pixel to be computed
+      Vec pixelCol = { 0.f, 0.f, 0.f };
+
+      // Mock background material
+      struct Material bgMaterial;
+      Vec black; vinit(black, 0.f, 0.f, 0.f);
+      setMatteGlossBalance(&bgMaterial, 0.f, &black, &black);
+
+      // For each sample to be taken
+      for (int i = 0; i < aliasFactor; ++i) {
+        for (int j = 0; j < aliasFactor; ++j) {
+          // Calculate the direction of the ray
+          float x = kPxWorldX + (float)(((float)j) * kAliasFactorInv);
+          float y = kPxWorldY + (float)(((float)i) * kAliasFactorInv);
+
+          // Set the ray's dir and normalise it
+          vinit(ray.dir, x, y, zoomFactor); vnorm(ray.dir);
+
+          // Raytrace for the current sample
+          Vec currentSampleCol = rayTrace(hSpheres, sphNum, hLights, lgtNum,
+            &ray, &bgMaterial, 0);
+
+          vsmul(currentSampleCol, kSamplesTotinv, currentSampleCol);
+
+          // Compute the average
+          vadd(pixelCol, pixelCol, currentSampleCol);
+        }
+      }
+
+      // Write result in destination buffer
+      *(imagePtr + (gid * sizeof(float))) = pixelCol.x;
+      *(imagePtr + (gid * sizeof(float)) + 1) = pixelCol.y;
+      *(imagePtr + (gid * sizeof(float)) + 2) = pixelCol.z;
+    }
+  
 
 
 
@@ -364,6 +432,7 @@ int main(int argc, char** argv)
   clReleaseCommandQueue(commandsGPU);
   clReleaseContext(gpuContext);
   // ... Also on host
+  free(imagePtr);
   free(hLights);
   free(hSpheres);
   free(hA);
