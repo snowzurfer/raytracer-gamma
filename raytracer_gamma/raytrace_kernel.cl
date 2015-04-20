@@ -10,9 +10,12 @@ __kernel void raytrace(
    __private const unsigned int lgtNum,
    __private const unsigned int width,
    __private const unsigned int height,
+   __private const unsigned float zoom,
+   __private const unsigned float aliasFactor,
    __global float4 *dst)     
 {                                                                     
    int i = get_global_id(0);                                          
+   
    
 	
 } 
