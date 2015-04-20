@@ -62,5 +62,11 @@ typedef struct {
 #define OCL_CONSTANT_BUFFER __constant
 #endif
 
+// Workaround for making the code work both outside of opencl and in it
+#define OCL_GLOBAL_BUFFER __global
+#define OCL_PRIVATE_BUFFER __private
+#define OCL_LOCAL_BUFFER __local
+
+
 #endif	/* _VEC_H */
 

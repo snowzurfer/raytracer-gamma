@@ -1,4 +1,7 @@
 
+#ifndef _RAYTRACER_H
+#define _RAYTRACER_H
+
 #include <vec.h>
 
 // EPSILON is a tolerance value for floating point roundoff error.
@@ -73,7 +76,11 @@ void setMatteGlossBalance(struct Material *m, const float glossFactor,
 // Intersection of a sphere with a ray; it returns if the collision
 // was found and the parameter for the distance from the ray's
 // origin to the intersection
-bool raySphere(struct Sphere * sphere, struct Ray *ray, float *t) {
+bool raySphere(
+#ifdef GPU_KERNEL
+OCL_GLOBAL_BUFFER
+#endif
+struct Sphere * sphere, struct Ray *ray, float *t) {
   const float kEPSILON = 1.0e-6f;
 
   // Calculate the coefficients of the quadratic equation
@@ -120,8 +127,16 @@ bool raySphere(struct Sphere * sphere, struct Ray *ray, float *t) {
 
 // Calculates eventual intersection of ray with the scene and returns
 // the intersection a populated intersection object
-bool calcIntersection(struct Sphere *spheres, const unsigned int sphNum,
-struct Ray *ray, struct Intersection *intersection)
+bool calcIntersection(
+#ifdef GPU_KERNEL
+OCL_GLOBAL_BUFFER
+#endif
+struct Sphere *spheres, const unsigned int sphNum,
+struct Ray *ray, 
+#ifdef GPU_KERNEL
+OCL_PRIVATE_BUFFER
+#endif
+struct Intersection *intersection)
 {
   const float kMaxRenderDist = 1000.f;
 
@@ -207,7 +222,11 @@ bool isSignificant(const Vec *colour) {
     (colour->z >= kMinOpticalIntesity);
 }
 
-bool hasClearLineOfSight(struct Sphere *spheres, const unsigned int sphNum,
+bool hasClearLineOfSight(
+#ifdef GPU_KERNEL
+OCL_GLOBAL_BUFFER
+#endif
+struct Sphere *spheres, const unsigned int sphNum,
   const Vec *ptA, const Vec *ptB) {
   // Calculate direction from A to B
   Vec dir; vsub(dir, *ptA, *ptB);
@@ -243,7 +262,14 @@ bool hasClearLineOfSight(struct Sphere *spheres, const unsigned int sphNum,
 
 // Determine the matte reflection contribution to the illumination
 // of an intersection point
-Vec calculateMatte(struct Sphere *spheres, const unsigned int sphNum,
+Vec calculateMatte(
+#ifdef GPU_KERNEL
+OCL_GLOBAL_BUFFER
+#endif
+struct Sphere *spheres, const unsigned int sphNum,
+#ifdef GPU_KERNEL
+OCL_GLOBAL_BUFFER
+#endif
   const struct Light *lights, const unsigned int lgtNum,
   const struct Intersection *intersection)
 {
@@ -292,10 +318,17 @@ Vec calculateMatte(struct Sphere *spheres, const unsigned int sphNum,
   return colourSum;
 }
 
-Vec rayTrace(struct Sphere *spheres, const unsigned int sphNum,
-            struct Light *lights, const unsigned int lgtNum,
-            struct Ray *ray, struct Material *refractiveMaterial,
-            int traceDepth)
+Vec rayTrace(
+#ifdef GPU_KERNEL
+OCL_GLOBAL_BUFFER
+#endif
+struct Sphere *spheres, const unsigned int sphNum,
+#ifdef GPU_KERNEL
+OCL_GLOBAL_BUFFER
+#endif
+struct Light *lights, const unsigned int lgtNum,
+struct Ray *ray, struct Material *refractiveMaterial,
+  int traceDepth)
 {
   const int kMaxTraceDepth = 2;
 
@@ -324,6 +357,8 @@ Vec rayTrace(struct Sphere *spheres, const unsigned int sphNum,
 
           vmul(calcTemp, matteCalcResult, calcTemp);
 
+          vsadd(calcTemp, 0.1, calcTemp);
+
           vadd(colourSum, calcTemp, colourSum);
 
         }
@@ -337,3 +372,5 @@ Vec rayTrace(struct Sphere *spheres, const unsigned int sphNum,
 
   return colourSum;
 }
+
+#endif

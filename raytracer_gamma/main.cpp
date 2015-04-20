@@ -23,11 +23,6 @@
 extern int output_device_info(cl_device_id);
 
 
-// Constants defining the image size
-const int kImageHeight = 600;
-const int kImageWidth = 800;
-
-
 // Structure representing a pixel
 struct RGB
 {
@@ -70,6 +65,12 @@ void savePPM(const RGB *pixels, const char *filename, const int width, const int
       r = static_cast<unsigned char>(std::min(1.f, pixels[i].r) * 255);
       g = static_cast<unsigned char>(std::min(1.f, pixels[i].g) * 255);
       b = static_cast<unsigned char>(std::min(1.f, pixels[i].b) * 255);
+
+      if (r > 1) {
+
+        printf("red: %d \n", r);
+      }
+
       // Write the values
       ofs << r << g << b;
     }
@@ -98,7 +99,7 @@ int main(int argc, char** argv)
   // Define the scene
   const unsigned int kScreenWidth = 800;
   const unsigned int kScreenHeight = 600;
-  float zoomFactor = -2.5f;
+  float zoomFactor = -1.5f;
   float aliasFactor = 1.f;
 
   size_t globalWorkSize = kScreenWidth * kScreenHeight;
@@ -237,19 +238,6 @@ int main(int argc, char** argv)
   checkError(err, "Creating kernel");
 
 
-
-
-
-  // Create a, b, and c arrays device memory buffers
-  cl_mem dA = clCreateBuffer(gpuContext, CL_MEM_READ_ONLY,
-    sizeof(float)* count, NULL, &err);
-  checkError(err, "Creating buffer A");
-  cl_mem dB = clCreateBuffer(gpuContext, CL_MEM_READ_ONLY,
-    sizeof(float)* count, NULL, &err);
-  checkError(err, "Creating buffer B");
-  cl_mem dC = clCreateBuffer(gpuContext, CL_MEM_WRITE_ONLY,
-    sizeof(float)* count, NULL, &err);
-  checkError(err, "Creating buffer C");
   
 
   // Create the list of spheres and lights in device memory
@@ -260,17 +248,11 @@ int main(int argc, char** argv)
     sizeof(struct Light) * lgtNum, NULL, &err);
   checkError(err, "Creating buffer for lights");
   cl_mem dPixelBuffer = clCreateBuffer(gpuContext, CL_MEM_WRITE_ONLY,
-    kScreenWidth * kScreenHeight *sizeof(cl_float4), NULL, &err);
+    kScreenWidth * kScreenHeight * sizeof(cl_float4), NULL, &err);
   checkError(err, "Creating buffer for pixels");
 
   // Write data from host into device memory (fill the buffers with
   // the host arrays)
-  err = clEnqueueWriteBuffer(commandsGPU, dA, CL_FALSE, 0,
-    sizeof(float)* count, hA, 0, NULL, NULL);
-  checkError(err, "Copying hA into dA");
-  err = clEnqueueWriteBuffer(commandsGPU, dB, CL_FALSE, 0,
-    sizeof(float)* count, hB, 0, NULL, NULL);
-  checkError(err, "Copying hB into dB");
   err = clEnqueueWriteBuffer(commandsGPU, dSpheres, CL_FALSE, 0,
     sizeof(struct Sphere) * sphNum, hSpheres, 0, NULL, NULL);
   checkError(err, "Copying hSperes in dSpheres");
@@ -306,8 +288,11 @@ int main(int argc, char** argv)
 
   printf("Size of vec3: %d", sizeof(Vec));
 
+
+
   // Image
   float *imagePtr = (float *)malloc(globalWorkSize * sizeof(Vec));
+
 
 
   // Screen in world coordinates
@@ -315,13 +300,15 @@ int main(int argc, char** argv)
   const float kImageWorldHeight = 12.f;
 
   // Amount to increase each step for the ray direction
-  const float kRayXStep = kImageWorldWidth / ((float)kImageWidth);
-  const float kRayYStep = kImageWorldHeight / ((float)kImageHeight);
+  const float kRayXStep = kImageWorldWidth / ((float)kScreenWidth);
+  const float kRayYStep = kImageWorldHeight / ((float)kScreenHeight);
 
   // Variables holding the current step in world coordinates
   //float rayX = 0.f, rayY = 0.f;
 
-  for (int y = 0; y < kImageHeight * kImageWidth; ++y) {
+  /*int pixelsCounter = 0;
+
+  for (int y = 0; y < kScreenWidth * kScreenHeight; ++y, pixelsCounter += 3) {
       // Retrieve the global ID of the kernel
       const unsigned gid = y;
 
@@ -333,8 +320,8 @@ int main(int argc, char** argv)
       const cl_float kSamplesTotinv = 1.f / kSamplesTot;
 
       // Calculate world position of pixel being currently worked on
-      const float kPxWorldX = (((float)(gid % kImageWidth) - (kImageWidth * 0.5f))) * kRayXStep;
-      const float kPxWorldY = ((kImageHeight *0.5f) - ((float)(gid / kImageWidth))) * kRayYStep;
+      const float kPxWorldX = (((float)(gid % kScreenWidth) - (kScreenWidth * 0.5f))) * kRayXStep;
+      const float kPxWorldY = ((kScreenHeight *0.5f) - ((float)(gid / kScreenWidth))) * kRayYStep;
 
       // The ray to be shot. The vantage point (camera) is at the origin,
       // and its intensity is maximum
@@ -370,10 +357,10 @@ int main(int argc, char** argv)
       }
 
       // Write result in destination buffer
-      *(imagePtr + (gid * sizeof(float))) = pixelCol.x;
-      *(imagePtr + (gid * sizeof(float)) + 1) = pixelCol.y;
-      *(imagePtr + (gid * sizeof(float)) + 2) = pixelCol.z;
-    }
+      *(imagePtr + pixelsCounter)  = pixelCol.x;
+      *(imagePtr + pixelsCounter + 1) = pixelCol.y;
+      *(imagePtr + pixelsCounter + 2) = pixelCol.z;
+    }*/
   
 
 
@@ -388,9 +375,9 @@ int main(int argc, char** argv)
 
   // Read back the results from the device memory
   // Create a buffer of pixels
-  /*cl_float4 *dst
+  cl_float4 *dst;
 
-  err = clEnqueueReadBuffer(commandsGPU, dC, CL_FALSE, 0,
+  /*err = clEnqueueReadBuffer(commandsGPU, dC, CL_FALSE, 0,
     sizeof(float)* count, hC, 0, NULL, NULL);
   // If the reading operation didn't complete successfully
   if (err != CL_SUCCESS) {
@@ -401,38 +388,23 @@ int main(int argc, char** argv)
   }*/
 
   // Test the results
-  unsigned int correctResNum = 0;
-  float tmp;
 
-  /*for (int i = 0; i < count; i++) {
-    tmp = hA[i] + hB[i];     // assign element i of a+b to tmp
-    tmp -= hC[i];            // compute deviation of expected and output result
-    if (tmp*tmp < TOL*TOL) {  // correct if square deviation is less than tolerance squared
-      correctResNum++;
-    }
-    else {
-      printf(" tmp %f h_a %f h_b %f h_c %f \n", tmp, hA[i],
-        hB[i], hC[i]);
-    }
-  }*/
+  
 
   // Summarise results
-  printf("C = A+B:  %d out of %d results were correct.\n", correctResNum,
-    count);
+ /* printf("C = A+B:  %d out of %d results were correct.\n", correctResNum,
+    count);*/
 
   // Cleanup
   clReleaseMemObject(dPixelBuffer);
   clReleaseMemObject(dLights);
   clReleaseMemObject(dSpheres);
-  clReleaseMemObject(dA);
-  clReleaseMemObject(dB);
-  clReleaseMemObject(dC);
   clReleaseProgram(program);
   clReleaseKernel(koRTG);
   clReleaseCommandQueue(commandsGPU);
   clReleaseContext(gpuContext);
   // ... Also on host
-  free(imagePtr);
+  
   free(hLights);
   free(hSpheres);
   free(hA);
@@ -442,15 +414,63 @@ int main(int argc, char** argv)
 
 
   // Try to save a PPM picture
-  RGB *pixels = (RGB *)calloc(kImageHeight * kImageWidth, sizeof(RGB));
+
+  fprintf(stdout, "Size of RGB: %d \n", sizeof(RGB));
+
+  RGB *pixels = (RGB *)calloc(kScreenHeight * kScreenWidth, sizeof(RGB));
   
-  for (int i = 0; i < (kImageHeight * kImageWidth); i++) {
-    pixels[i].r = (float)((i % 256) / 256.f); /* red */
-    pixels[i].g = (float)((i % 256) / 256.f);  /* green */
-    pixels[i].b = (float)((i % 256) / 256.f);  /* blue */
+  memcpy(pixels, imagePtr, (kScreenHeight * kScreenWidth * sizeof(RGB)));
+
+
+  float temp1;
+
+  int correctResNum = 0;
+
+  printf("tot: %d \n", globalWorkSize * sizeof(Vec));
+
+  /*for (int i = 0; i < (globalWorkSize * 12); i += 3) {
+    temp1 = imagePtr[i];
+    float temp2 = imagePtr[1 + i];
+    float temp3 = imagePtr[i + 2];
+
+    // assign element i of a+b to tmp
+    // compute deviation of expected and output result
+    if (temp1 > 0.f || temp2 > 0.f || temp3 > 0.f) {  // correct if square deviation is less than tolerance squared
+      correctResNum++;
+    }
+    else if (temp1 != 0.f && temp2 != 0.f && temp3 != 0.f) {
+      printf(" temp1 %f temp2 %f temp3 %f \n", temp1,
+        temp2, temp3);
+    }
+  }*/
+
+  printf("correct resz: %d \n", correctResNum);
+
+  RGB temp;
+  for (int i = 0; i < globalWorkSize; i++) {
+    temp = pixels[i];     // assign element i of a+b to tmp
+                            // compute deviation of expected and output result
+    if (temp.b > 0.f || temp.r > 0.f || temp.g > 0.f) {  // correct if square deviation is less than tolerance squared
+      correctResNum++;
+      printf(" temp.r %f temp.g %f temp.b %f \n", temp.r,
+        temp.g, temp.b);
+    }
+    else {
+      //printf(" temp.r %f temp.g %f temp.b %f \n", temp.r,
+        //temp.g, temp.b);
+    }
   }
 
-  savePPM(pixels, "testPPM.ppm", kImageWidth, kImageHeight);
+  free(imagePtr);
+
+  //int imageCounter
+  //for (int i = 0; i < (kScreenHeight * kScreenWidth); i++) {
+  //  pixels[i].r = imagePtr[i]; /* red */
+  //  pixels[i].g = imagePtr[i + 1];  /* green */
+  //  pixels[i].b = (float)((i % 256) / 256.f);  /* blue */
+  //}
+
+  savePPM(pixels, "testPPM.ppm", kScreenWidth, kScreenHeight);
   free(pixels);
 
  
