@@ -286,96 +286,13 @@ int main(int argc, char** argv)
   err = clFinish(commandsGPU);
   checkError(err, "Waiting for commands to finish");
 
-  printf("Size of vec3: %d", sizeof(Vec));
-
-
-
-  // Image
-  float *imagePtr = (float *)malloc(globalWorkSize * sizeof(Vec));
-
-
-
-  // Screen in world coordinates
-  const float kImageWorldWidth = 16.f;
-  const float kImageWorldHeight = 12.f;
-
-  // Amount to increase each step for the ray direction
-  const float kRayXStep = kImageWorldWidth / ((float)kScreenWidth);
-  const float kRayYStep = kImageWorldHeight / ((float)kScreenHeight);
-
-  // Variables holding the current step in world coordinates
-  //float rayX = 0.f, rayY = 0.f;
-
-  /*int pixelsCounter = 0;
-
-  for (int y = 0; y < kScreenWidth * kScreenHeight; ++y, pixelsCounter += 3) {
-      // Retrieve the global ID of the kernel
-      const unsigned gid = y;
-
-      // Calculate inverse of aliasFactor
-      const float kAliasFactorInv = 1.f / aliasFactor;
-      // Calculate total size of samples to be taken
-      const float kSamplesTot = aliasFactor * aliasFactor;
-      // Also its inverse
-      const cl_float kSamplesTotinv = 1.f / kSamplesTot;
-
-      // Calculate world position of pixel being currently worked on
-      const float kPxWorldX = (((float)(gid % kScreenWidth) - (kScreenWidth * 0.5f))) * kRayXStep;
-      const float kPxWorldY = ((kScreenHeight *0.5f) - ((float)(gid / kScreenWidth))) * kRayYStep;
-
-      // The ray to be shot. The vantage point (camera) is at the origin,
-      // and its intensity is maximum
-      struct Ray ray; vinit(ray.origin, 0.f, 0.f, 0.f); vinit(ray.intensity, 1.f, 1.f, 1.f);
-
-      // The colour of the pixel to be computed
-      Vec pixelCol = { 0.f, 0.f, 0.f };
-
-      // Mock background material
-      struct Material bgMaterial;
-      Vec black; vinit(black, 0.f, 0.f, 0.f);
-      setMatteGlossBalance(&bgMaterial, 0.f, &black, &black);
-
-      // For each sample to be taken
-      for (int i = 0; i < aliasFactor; ++i) {
-        for (int j = 0; j < aliasFactor; ++j) {
-          // Calculate the direction of the ray
-          float x = kPxWorldX + (float)(((float)j) * kAliasFactorInv);
-          float y = kPxWorldY + (float)(((float)i) * kAliasFactorInv);
-
-          // Set the ray's dir and normalise it
-          vinit(ray.dir, x, y, zoomFactor); vnorm(ray.dir);
-
-          // Raytrace for the current sample
-          Vec currentSampleCol = rayTrace(hSpheres, sphNum, hLights, lgtNum,
-            &ray, &bgMaterial, 0);
-
-          vsmul(currentSampleCol, kSamplesTotinv, currentSampleCol);
-
-          // Compute the average
-          vadd(pixelCol, pixelCol, currentSampleCol);
-        }
-      }
-
-      // Write result in destination buffer
-      *(imagePtr + pixelsCounter)  = pixelCol.x;
-      *(imagePtr + pixelsCounter + 1) = pixelCol.y;
-      *(imagePtr + pixelsCounter + 2) = pixelCol.z;
-    }*/
-  
-
-
-
-
-
-
-
   // Print execution time
   /*rtime = wtime() - rtime;
   printf("\nThe kernel ran in %lf seconds\n", rtime);*/
 
   // Read back the results from the device memory
   // Create a buffer of pixels
-  
+  float *imagePtr = (float *)malloc(globalWorkSize * sizeof(Vec));
 
   err = clEnqueueReadBuffer(commandsGPU, dPixelBuffer, CL_TRUE, 0,
     kScreenWidth * kScreenHeight * sizeof(Vec), imagePtr, 0, NULL, NULL);
@@ -387,13 +304,6 @@ int main(int argc, char** argv)
     exit(1);
   }
 
-  // Test the results
-
-  
-
-  // Summarise results
- /* printf("C = A+B:  %d out of %d results were correct.\n", correctResNum,
-    count);*/
 
   // Cleanup
   clReleaseMemObject(dPixelBuffer);
@@ -421,53 +331,21 @@ int main(int argc, char** argv)
   
   memcpy(pixels, imagePtr, (kScreenHeight * kScreenWidth * sizeof(RGB)));
 
-
-  float temp1;
-
-  int correctResNum = 0;
-
-  printf("tot: %d \n", globalWorkSize * sizeof(Vec));
-
-  /*for (int i = 0; i < (globalWorkSize * 12); i += 3) {
-    temp1 = imagePtr[i];
-    float temp2 = imagePtr[1 + i];
-    float temp3 = imagePtr[i + 2];
-
-    // assign element i of a+b to tmp
-    // compute deviation of expected and output result
-    if (temp1 > 0.f || temp2 > 0.f || temp3 > 0.f) {  // correct if square deviation is less than tolerance squared
-      correctResNum++;
-    }
-    else if (temp1 != 0.f && temp2 != 0.f && temp3 != 0.f) {
-      printf(" temp1 %f temp2 %f temp3 %f \n", temp1,
-        temp2, temp3);
-    }
-  }*/
-
-  printf("correct resz: %d \n", correctResNum);
-
-  RGB temp;
-  for (int i = 0; i < globalWorkSize; i++) {
-    temp = pixels[i];     // assign element i of a+b to tmp
-                            // compute deviation of expected and output result
-    if (temp.b > 0.f || temp.r > 0.f || temp.g > 0.f) {  // correct if square deviation is less than tolerance squared
-      correctResNum++;
-      printf(" temp.r %f temp.g %f temp.b %f \n", temp.r,
-        temp.g, temp.b);
-    }
-    else {
-      //printf(" temp.r %f temp.g %f temp.b %f \n", temp.r,
-        //temp.g, temp.b);
-    }
-  }
-
   free(imagePtr);
 
-  //int imageCounter
-  //for (int i = 0; i < (kScreenHeight * kScreenWidth); i++) {
-  //  pixels[i].r = imagePtr[i]; /* red */
-  //  pixels[i].g = imagePtr[i + 1];  /* green */
-  //  pixels[i].b = (float)((i % 256) / 256.f);  /* blue */
+  //RGB temp;
+  //for (int i = 0; i < globalWorkSize; i++) {
+  //  temp = pixels[i];     // assign element i of a+b to tmp
+  //                          // compute deviation of expected and output result
+  //  if (temp.b > 0.f || temp.r > 0.f || temp.g > 0.f) {  // correct if square deviation is less than tolerance squared
+  //    correctResNum++;
+  //    printf(" temp.r %f temp.g %f temp.b %f \n", temp.r,
+  //      temp.g, temp.b);
+  //  }
+  //  else {
+  //    //printf(" temp.r %f temp.g %f temp.b %f \n", temp.r,
+  //      //temp.g, temp.b);
+  //  }
   //}
 
   savePPM(pixels, "testPPM.ppm", kScreenWidth, kScreenHeight);
