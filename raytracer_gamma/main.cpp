@@ -248,7 +248,7 @@ int main(int argc, char** argv)
     sizeof(struct Light) * lgtNum, NULL, &err);
   checkError(err, "Creating buffer for lights");
   cl_mem dPixelBuffer = clCreateBuffer(gpuContext, CL_MEM_WRITE_ONLY,
-    kScreenWidth * kScreenHeight * sizeof(cl_float4), NULL, &err);
+    kScreenWidth * kScreenHeight * sizeof(Vec), NULL, &err);
   checkError(err, "Creating buffer for pixels");
 
   // Write data from host into device memory (fill the buffers with
@@ -375,17 +375,17 @@ int main(int argc, char** argv)
 
   // Read back the results from the device memory
   // Create a buffer of pixels
-  cl_float4 *dst;
+  
 
-  /*err = clEnqueueReadBuffer(commandsGPU, dC, CL_FALSE, 0,
-    sizeof(float)* count, hC, 0, NULL, NULL);
+  err = clEnqueueReadBuffer(commandsGPU, dPixelBuffer, CL_TRUE, 0,
+    kScreenWidth * kScreenHeight * sizeof(Vec), imagePtr, 0, NULL, NULL);
   // If the reading operation didn't complete successfully
   if (err != CL_SUCCESS) {
     printf("Error: Failed to read output array!\n%s\n", err_code(err));
 
     // Exit
     exit(1);
-  }*/
+  }
 
   // Test the results
 

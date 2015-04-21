@@ -42,7 +42,7 @@ struct Light
 
 struct Intersection {
   // Object which intersects with the ray
-  struct Sphere *object;
+  struct Sphere object;
 
   // Point of intersection
   Vec point;
@@ -165,7 +165,7 @@ struct Intersection *intersection)
         intersection->squaredDist = vdot(dist, dist);
 
         found = true;
-        intersection->object = (spheres + i);
+        intersection->object = *(spheres + i);
       }
     }
   }
@@ -277,16 +277,16 @@ OCL_GLOBAL_BUFFER
 
   // For each light source
   for (int i = 0; i < lgtNum; ++i) {
-    // Create a reference to the current light source
-    const struct Light *light = (lights + i);
+    // Create a copy of the current light source
+    const struct Light light = *(lights + i);
 
     // If there isn't any object in the way between the intersection point
     // and the light source
     if (hasClearLineOfSight(spheres, sphNum, &intersection->point,
-      &light->pos))
+      &light.pos))
     {
       // Distance vector from intersection point to light source
-      Vec dist; vsub(dist, light->pos, intersection->point);
+      Vec dist; vsub(dist, light.pos, intersection->point);
       // Direction
       Vec dir = dist; vnorm(dir);
       
@@ -305,7 +305,7 @@ OCL_GLOBAL_BUFFER
         const float intensity = incidence / distMagSquared;
 
         // Scale light's colour depending on the intensity
-        Vec scaledLightColour; vsmul(scaledLightColour, intensity, light->col);
+        Vec scaledLightColour; vsmul(scaledLightColour, intensity, light.col);
 
         // Add it to the total sum
         vadd(colourSum, colourSum, scaledLightColour);
@@ -343,13 +343,13 @@ struct Ray *ray, struct Material *refractiveMaterial,
       if (isSignificant(&ray->intensity)) {
         // Calculate the opacity and transparency available
         // of the light ray.
-        const float opacity = intersection.object->material.opacity;
+        const float opacity = intersection.object.material.opacity;
         const float transparency = 1.f - opacity;
 
         // If the object is opaque
         if (opacity > 0.f) {
           // Calculate matte colour
-          Vec calcTemp; vmul(calcTemp, ray->intensity, intersection.object->material.matteColour);
+          Vec calcTemp; vmul(calcTemp, ray->intensity, intersection.object.material.matteColour);
           vsmul(calcTemp, opacity, calcTemp);
           Vec matteCalcResult = calculateMatte(spheres, sphNum, lights,
             lgtNum, &intersection);
@@ -382,7 +382,7 @@ __kernel void raytrace(
 	__private const unsigned int kHeight,
 	__private const float kZoom,
 	__private const float kAliasFactor,
-	__global float4 *dst)     
+	__global Vec *dst)     
 {                            
 	// Retrieve the global ID of the kernel
 	const unsigned gid = get_global_id(0); 
@@ -411,7 +411,7 @@ __kernel void raytrace(
 	struct Ray ray; vinit(ray.origin, 0.f, 0.f, 0.f); vinit(ray.intensity, 1.f, 1.f, 1.f);
 	
 	// The colour of the pixel to be computed
-	float4 pixelCol = (float4)(0.f);
+    Vec pixelCol = { 0.f, 0.f, 0.f };
 	
 	// Mock background material
 	struct Material bgMaterial;
@@ -432,17 +432,13 @@ __kernel void raytrace(
 			Vec currentSampleCol = rayTrace(spheres, kSphNum, lights, kLgtNum,
 				&ray, &bgMaterial, 0);
 			
-			/*float4 float4Samplecol; 
-			float4Samplecol.s[0] = currentSampleCol.x;
-			float4Samplecol.s[1] = currentSampleCol.y;
-			float4Samplecol.s[2] = currentSampleCol.z;
-			float4Samplecol.s[3] = 0.f;
-			
+			vsmul(currentSampleCol, kSamplesTotinv, currentSampleCol);
+
 			// Compute the average
-			pixelCol += (float4Samplecol * kSamplesTotinv);*/
+			vadd(pixelCol, pixelCol, currentSampleCol);
 		}
 	}
 	
 	// Write result in destination buffer
-	dst[gid] = pixelCol;
+	vassign(dst[gid], pixelCol);
 } 
