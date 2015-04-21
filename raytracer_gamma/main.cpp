@@ -106,17 +106,18 @@ int main(int argc, char** argv)
   // Colours
   Vec whiteCol;
   vinit(whiteCol, 1.f, 1.f, 1.f);
- 
+
   // Setup materials
   struct Material ballMaterial1; // White
   Vec bm1Gloss; vassign(bm1Gloss, whiteCol);
   Vec bm1Matte; vassign(bm1Matte, whiteCol);
-  setMatOpacity(&ballMaterial1, 1.f);
+  setMatOpacity(&ballMaterial1, 0.4f);
   setMatteGlossBalance(&ballMaterial1, 0.6f, &bm1Matte, &bm1Gloss);
+  setMatRefractivityIndex(&ballMaterial1, 1.5500f);
 
   // Setup spheres
   unsigned int sphNum = 1;
-  struct Sphere *hSpheres = 
+  struct Sphere *hSpheres =
     (struct Sphere *)calloc(sphNum, sizeof(struct Sphere));
   hSpheres[0].material = ballMaterial1;
   vinit(hSpheres[0].pos, 0.f, 0.f, -10.f);
@@ -124,9 +125,9 @@ int main(int argc, char** argv)
 
   // Setup light sources
   unsigned int lgtNum = 1;
-  struct Light *hLights = 
+  struct Light *hLights =
     (struct Light *)calloc(lgtNum, sizeof(struct Light));
-  vinit(hLights[0].pos, 0.f, 6.f, -4.f);
+  vinit(hLights[0].pos, 0.f, 6.f, -10.f);
   vassign(hLights[0].col, whiteCol);
 
 
@@ -203,7 +204,7 @@ int main(int argc, char** argv)
   std::string source((std::istreambuf_iterator<char>(sourceFstream)),
     std::istreambuf_iterator<char>());
 
-  // Create a program from the source
+  /*// Create a program from the source
   const char* str = source.c_str();
   cl_program program;
   program = clCreateProgramWithSource(gpuContext, 1, &str, NULL, &err);
@@ -216,16 +217,16 @@ int main(int argc, char** argv)
   err = clBuildProgram(program, 0, NULL, "-I C:\Drive\Alberto\Projects\Code\C++\raytracer_gamma\raytracer_gamma ", NULL, NULL);
   // If there were compilation errors
   if (err != CL_SUCCESS) {
-    // Print out compilation log
-    size_t len;
-    char buffer[2048];
+  // Print out compilation log
+  size_t len;
+  char buffer[2048];
 
-    printf("Error: Failed to build program executable!\n%s\n", err_code(err));
-    clGetProgramBuildInfo(program, deviceId, CL_PROGRAM_BUILD_LOG, sizeof(buffer), buffer, &len);
-    printf("%s\n", buffer);
+  printf("Error: Failed to build program executable!\n%s\n", err_code(err));
+  clGetProgramBuildInfo(program, deviceId, CL_PROGRAM_BUILD_LOG, sizeof(buffer), buffer, &len);
+  printf("%s\n", buffer);
 
-    // Exit
-    return EXIT_FAILURE;
+  // Exit
+  return EXIT_FAILURE;
   }
 
 
@@ -234,10 +235,10 @@ int main(int argc, char** argv)
   // Create the kernel
   cl_kernel koRTG;
   koRTG = clCreateKernel(program, "raytrace", &err);
-  checkError(err, "Creating kernel");
+  checkError(err, "Creating kernel");*/
 
 
-  
+
 
   // Create the list of spheres and lights in device memory
   cl_mem dSpheres = clCreateBuffer(gpuContext, CL_MEM_READ_WRITE,
@@ -247,7 +248,7 @@ int main(int argc, char** argv)
     sizeof(struct Light) * lgtNum, NULL, &err);
   checkError(err, "Creating buffer for lights");
   cl_mem dPixelBuffer = clCreateBuffer(gpuContext, CL_MEM_WRITE_ONLY,
-    kScreenWidth * kScreenHeight * sizeof(Vec), NULL, &err);
+    kScreenWidth * kScreenHeight * sizeof(cl_float4), NULL, &err);
   checkError(err, "Creating buffer for pixels");
 
   // Write data from host into device memory (fill the buffers with
@@ -262,7 +263,7 @@ int main(int argc, char** argv)
 
 
   // Set kernel arguments
-  err = clSetKernelArg(koRTG, 0, sizeof(cl_mem), &dSpheres);
+  /*err = clSetKernelArg(koRTG, 0, sizeof(cl_mem), &dSpheres);
   err |= clSetKernelArg(koRTG, 1, sizeof(unsigned int), &sphNum);
   err |= clSetKernelArg(koRTG, 2, sizeof(cl_mem), &dLights);
   err |= clSetKernelArg(koRTG, 3, sizeof(unsigned int), &lgtNum);
@@ -277,13 +278,97 @@ int main(int argc, char** argv)
 
   // Execute the kernel over the entire range of our 1d input data set
   // letting the OpenCL runtime choose the work-group size
-  err = clEnqueueNDRangeKernel(commandsGPU, koRTG, 1, NULL,
-    &globalWorkSize, NULL, 0, NULL, NULL);
+  /*err = clEnqueueNDRangeKernel(commandsGPU, koRTG, 1, NULL,
+  &globalWorkSize, NULL, 0, NULL, NULL);
   checkError(err, "Enqueueing kernel");
 
   // Wait for the commands in the queue to be executed
   err = clFinish(commandsGPU);
-  checkError(err, "Waiting for commands to finish");
+  checkError(err, "Waiting for commands to finish");*/
+
+  printf("Size of vec3: %d", sizeof(Vec));
+
+
+
+  // Image
+  float *imagePtr = (float *)malloc(globalWorkSize * sizeof(Vec));
+
+
+
+  // Screen in world coordinates
+  const float kImageWorldWidth = 16.f;
+  const float kImageWorldHeight = 12.f;
+
+  // Amount to increase each step for the ray direction
+  const float kRayXStep = kImageWorldWidth / ((float)kScreenWidth);
+  const float kRayYStep = kImageWorldHeight / ((float)kScreenHeight);
+
+  // Variables holding the current step in world coordinates
+  float rayX = 0.f, rayY = 0.f;
+
+  int pixelsCounter = 0;
+
+  for (int y = 0; y < kScreenWidth * kScreenHeight; ++y, pixelsCounter += 3) {
+    // Retrieve the global ID of the kernel
+    const unsigned gid = y;
+
+    // Calculate inverse of aliasFactor
+    const float kAliasFactorInv = 1.f / aliasFactor;
+    // Calculate total size of samples to be taken
+    const float kSamplesTot = aliasFactor * aliasFactor;
+    // Also its inverse
+    const cl_float kSamplesTotinv = 1.f / kSamplesTot;
+
+    // Calculate world position of pixel being currently worked on
+    const float kPxWorldX = (((float)(gid % kScreenWidth) - (kScreenWidth * 0.5f))) * kRayXStep;
+    const float kPxWorldY = ((kScreenHeight *0.5f) - ((float)(gid / kScreenWidth))) * kRayYStep;
+
+    // The ray to be shot. The vantage point (camera) is at the origin,
+    // and its intensity is maximum
+    struct Ray ray; vinit(ray.origin, 0.f, 0.f, 0.f); vinit(ray.intensity, 1.f, 1.f, 1.f);
+
+    // The colour of the pixel to be computed
+    Vec pixelCol = { 0.f, 0.f, 0.f };
+
+    // Mock background material
+    struct Material bgMaterial;
+    Vec black; vinit(black, 0.f, 0.f, 0.f);
+    setMatteGlossBalance(&bgMaterial, 0.f, &black, &black);
+    setMatRefractivityIndex(&bgMaterial, 1.00f);
+
+    // For each sample to be taken
+    for (int i = 0; i < aliasFactor; ++i) {
+      for (int j = 0; j < aliasFactor; ++j) {
+        // Calculate the direction of the ray
+        float x = kPxWorldX + (float)(((float)j) * kAliasFactorInv);
+        float y = kPxWorldY + (float)(((float)i) * kAliasFactorInv);
+
+        // Set the ray's dir and normalise it
+        vinit(ray.dir, x, y, zoomFactor); vnorm(ray.dir);
+
+        // Raytrace for the current sample
+        Vec currentSampleCol = rayTrace(hSpheres, sphNum, hLights, lgtNum,
+          ray, &bgMaterial, 0);
+
+        vsmul(currentSampleCol, kSamplesTotinv, currentSampleCol);
+
+        // Compute the average
+        vadd(pixelCol, pixelCol, currentSampleCol);
+      }
+    }
+
+    // Write result in destination buffer
+    *(imagePtr + pixelsCounter) = pixelCol.x;
+    *(imagePtr + pixelsCounter + 1) = pixelCol.y;
+    *(imagePtr + pixelsCounter + 2) = pixelCol.z;
+  }
+
+
+
+
+
+
+
 
   // Print execution time
   /*rtime = wtime() - rtime;
@@ -291,29 +376,36 @@ int main(int argc, char** argv)
 
   // Read back the results from the device memory
   // Create a buffer of pixels
-  float *imagePtr = (float *)malloc(globalWorkSize * sizeof(Vec));
+  cl_float4 *dst;
 
-  err = clEnqueueReadBuffer(commandsGPU, dPixelBuffer, CL_TRUE, 0,
-    kScreenWidth * kScreenHeight * sizeof(Vec), imagePtr, 0, NULL, NULL);
+  /*err = clEnqueueReadBuffer(commandsGPU, dC, CL_FALSE, 0,
+  sizeof(float)* count, hC, 0, NULL, NULL);
   // If the reading operation didn't complete successfully
   if (err != CL_SUCCESS) {
-    printf("Error: Failed to read output array!\n%s\n", err_code(err));
+  printf("Error: Failed to read output array!\n%s\n", err_code(err));
 
-    // Exit
-    exit(1);
-  }
+  // Exit
+  exit(1);
+  }*/
 
+  // Test the results
+
+
+
+  // Summarise results
+  /* printf("C = A+B:  %d out of %d results were correct.\n", correctResNum,
+  count);*/
 
   // Cleanup
   clReleaseMemObject(dPixelBuffer);
   clReleaseMemObject(dLights);
   clReleaseMemObject(dSpheres);
-  clReleaseProgram(program);
-  clReleaseKernel(koRTG);
+  /*clReleaseProgram(program);
+  clReleaseKernel(koRTG);*/
   clReleaseCommandQueue(commandsGPU);
   clReleaseContext(gpuContext);
   // ... Also on host
-  
+
   free(hLights);
   free(hSpheres);
   free(hA);
@@ -327,24 +419,56 @@ int main(int argc, char** argv)
   fprintf(stdout, "Size of RGB: %d \n", sizeof(RGB));
 
   RGB *pixels = (RGB *)calloc(kScreenHeight * kScreenWidth, sizeof(RGB));
-  
+
   memcpy(pixels, imagePtr, (kScreenHeight * kScreenWidth * sizeof(RGB)));
+
+
+  float temp1;
+
+  int correctResNum = 0;
+
+  printf("tot: %d \n", globalWorkSize * sizeof(Vec));
+
+  /*for (int i = 0; i < (globalWorkSize * 12); i += 3) {
+  temp1 = imagePtr[i];
+  float temp2 = imagePtr[1 + i];
+  float temp3 = imagePtr[i + 2];
+
+  // assign element i of a+b to tmp
+  // compute deviation of expected and output result
+  if (temp1 > 0.f || temp2 > 0.f || temp3 > 0.f) {  // correct if square deviation is less than tolerance squared
+  correctResNum++;
+  }
+  else if (temp1 != 0.f && temp2 != 0.f && temp3 != 0.f) {
+  printf(" temp1 %f temp2 %f temp3 %f \n", temp1,
+  temp2, temp3);
+  }
+  }*/
+
+  printf("correct resz: %d \n", correctResNum);
+
+  RGB temp;
+  for (int i = 0; i < globalWorkSize; i++) {
+    temp = pixels[i];     // assign element i of a+b to tmp
+    // compute deviation of expected and output result
+    if (temp.b > 0.f || temp.r > 0.f || temp.g > 0.f) {  // correct if square deviation is less than tolerance squared
+      correctResNum++;
+      printf(" temp.r %f temp.g %f temp.b %f \n", temp.r,
+        temp.g, temp.b);
+    }
+    else {
+      //printf(" temp.r %f temp.g %f temp.b %f \n", temp.r,
+      //temp.g, temp.b);
+    }
+  }
 
   free(imagePtr);
 
-  //RGB temp;
-  //for (int i = 0; i < globalWorkSize; i++) {
-  //  temp = pixels[i];     // assign element i of a+b to tmp
-  //                          // compute deviation of expected and output result
-  //  if (temp.b > 0.f || temp.r > 0.f || temp.g > 0.f) {  // correct if square deviation is less than tolerance squared
-  //    correctResNum++;
-  //    printf(" temp.r %f temp.g %f temp.b %f \n", temp.r,
-  //      temp.g, temp.b);
-  //  }
-  //  else {
-  //    //printf(" temp.r %f temp.g %f temp.b %f \n", temp.r,
-  //      //temp.g, temp.b);
-  //  }
+  //int imageCounter
+  //for (int i = 0; i < (kScreenHeight * kScreenWidth); i++) {
+  //  pixels[i].r = imagePtr[i]; /* red */
+  //  pixels[i].g = imagePtr[i + 1];  /* green */
+  //  pixels[i].b = (float)((i % 256) / 256.f);  /* blue */
   //}
 
   savePPM(pixels, "testPPM.ppm", kScreenWidth, kScreenHeight);

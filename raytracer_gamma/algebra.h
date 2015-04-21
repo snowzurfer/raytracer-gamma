@@ -64,4 +64,30 @@ int solveQuadratic(float a, float b, float c, float *roots) {
   }
 }
 
+// Computes the maximum colour value for the given pixel buffer
+float maxColourValuePixelBuffer(const Vec *bfr, size_t n) {
+  // Max value to be returned
+  float max = 0.f;
+
+  // For each pixel
+  for (size_t i = 0; i < n; ++i) {
+    if (bfr[i].x > max) {
+      max = bfr[i].x;
+    }
+    if (bfr[i].y > max) {
+      max = bfr[i].y;
+    }
+    if (bfr[i].z > max) {
+      max = bfr[i].z;
+    }
+  }
+  // Check to see if the image is solid black to avoid division by zero.
+  // Since it is all black there isn't a reason to scale it.
+  if (max == 0.f) {
+    max = 1.f;
+  }
+
+  return max;
+}
+
 #endif

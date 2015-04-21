@@ -89,6 +89,10 @@ void setMatteGlossBalance(struct Material *m, const float glossFactor,
   Vec newGloss; vsmul(newGloss, glossFactor, *gloss);
   setMatGloss(m, &newGloss);
 }
+void setMatRefractivityIndex(struct Material *m, const float refIndex) {
+  m->refractiveIndex = refIndex;
+}
+
 // Intersection of a sphere with a ray; it returns if the collision
 // was found and the parameter for the distance from the ray's
 // origin to the intersection
