@@ -24,6 +24,7 @@ struct Material
   Vec matteColour;
   Vec glossColour;
   float opacity;
+  float refractiveIndex;
 };
 
 struct Sphere
@@ -52,6 +53,23 @@ struct Intersection {
   // Distance non-sqrted
   float squaredDist;
 };
+
+// Determine the matte reflection contribution to the illumination
+// of an intersection point
+Vec calculateRefraction(
+#ifdef GPU_KERNEL
+  OCL_GLOBAL_BUFFER
+#endif
+struct Sphere *spheres, const unsigned int sphNum,
+#ifdef GPU_KERNEL
+  OCL_GLOBAL_BUFFER
+#endif
+struct Light *lights, const unsigned int lgtNum,
+struct Intersection *intersection,
+struct Ray incidentRay,
+  int traceDepth,
+  const struct Material *refractiveMaterial,
+  float &outReflectionFactor);
 
 void setMatMatte(struct Material *m, const Vec *col) {
   vassign(m->matteColour, *col);
@@ -354,7 +372,7 @@ float polarisedReflection(
 }
 // Determine the matte reflection contribution to the illumination
 // of an intersection point
-/*Vec calculateRefraction(
+Vec calculateRefraction(
 #ifdef GPU_KERNEL
 OCL_GLOBAL_BUFFER
 #endif
@@ -409,6 +427,9 @@ OCL_GLOBAL_BUFFER
 
   return colourSum;
 }*/
+
+
+
 
 Vec rayTrace(
 #ifdef GPU_KERNEL

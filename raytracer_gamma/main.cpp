@@ -16,7 +16,6 @@
 #include <CL/cl.h>
 #endif
 
-#define TOL    (0.001)   // tolerance used in floating point comparisons
 #define LENGTH (1024)    // length of vectors a, b, and c
 
 //extern double wtime();       // returns time since some fixed past point (wtime.c)
