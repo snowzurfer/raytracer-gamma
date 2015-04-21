@@ -317,6 +317,99 @@ OCL_GLOBAL_BUFFER
   return colourSum;
 }
 
+// Calculate the reflection using fresnel's equations
+float polarisedReflection(
+	float n1,		// The source material's index of refraction
+	float n2,		// The target material's index of refraction
+	float cosA1,	// Incident or outgoing ray's angle cosine
+	float cosA2)	// Incident or outgoing ray's angle cosine
+{
+	const float kEPSILON = 1.0e-6f;
+	
+	const float left = n1 * cosA1;
+	const float right = n2 * cosA2;
+	double numerator = left - right;
+	double denominator = left + right;
+	
+	// Square the denominator
+	denominator *= denominator;
+	
+	// If the denominator is approx zero
+	if(denominator < kEPSILON) {
+		// Assume complete reflection
+		return 1.f;
+	}
+	
+	// Compute reflection
+	float reflection = (numerator * numerator) / denominator;
+	
+	// If the reflection value is more than one
+	if(reflection > 1.f) {
+		// Cap it
+		reflection = 1.f;
+	}
+	
+	return reflection;
+
+}
+// Determine the matte reflection contribution to the illumination
+// of an intersection point
+/*Vec calculateRefraction(
+#ifdef GPU_KERNEL
+OCL_GLOBAL_BUFFER
+#endif
+struct Sphere *spheres, const unsigned int sphNum,
+#ifdef GPU_KERNEL
+OCL_GLOBAL_BUFFER
+#endif
+  const struct Light *lights, const unsigned int lgtNum,
+  const struct Intersection *intersection)
+{
+  // Colour to be computed and returned
+  Vec colourSum; vinit(colourSum, 0.f, 0.f, 0.f);
+
+  // For each light source
+  for (int i = 0; i < lgtNum; ++i) {
+    // Create a copy of the current light source
+    const struct Light light = *(lights + i);
+
+    // If there isn't any object in the way between the intersection point
+    // and the light source
+    if (hasClearLineOfSight(spheres, sphNum, &intersection->point,
+      &light.pos))
+    {
+      // Distance vector from intersection point to light source
+      Vec dist; vsub(dist, light.pos, intersection->point);
+      // Direction
+      Vec dir = dist; vnorm(dir);
+      
+      // Calculate the incidence of the light ray with the surface normal
+      const float incidence = vdot(intersection->normal, dir);
+
+      // If the dot prod is negative it means that is hitting the
+      // surface from the inside of the object.
+      // If zero it's grazing the edge of the object.
+      // Only when the dot prod is positive this light source contributes
+      if (incidence > 0.f) {
+
+        // Calculate contribution based on the inverse-square law
+        // and the incidence value
+        const float distMagSquared = vdot(dist, dist);
+        const float intensity = incidence / distMagSquared;
+
+        // Scale light's colour depending on the intensity
+        Vec scaledLightColour; vsmul(scaledLightColour, intensity, light.col);
+
+        // Add it to the total sum
+        vadd(colourSum, colourSum, scaledLightColour);
+      }
+
+    }
+  }
+
+  return colourSum;
+}*/
+
 Vec rayTrace(
 #ifdef GPU_KERNEL
 OCL_GLOBAL_BUFFER
