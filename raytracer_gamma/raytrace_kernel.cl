@@ -1,7 +1,7 @@
 #define GPU_KERNEL
 
 #include "vec.h"
-
+#include "algebra.h"
 
 // EPSILON is a tolerance value for floating point roundoff error.
 // It is used in many calculations where we want to err
@@ -485,7 +485,162 @@ struct Ray *ray, struct Material *refractiveMaterial,
 
   return colourSum;
 }
+/*
+// Determine the matte reflection contribution to the illumination
+// of an intersection point
+Vec calculateRefraction(
+#ifdef GPU_KERNEL
+  OCL_GLOBAL_BUFFER
+#endif
+struct Sphere *spheres, const unsigned int sphNum,
+#ifdef GPU_KERNEL
+  OCL_GLOBAL_BUFFER
+#endif
+struct Light *lights, const unsigned int lgtNum,
+struct Intersection *intersection,
+struct Ray incidentRay,
+  int traceDepth,
+  const struct Material *refractiveMaterial,
+  float &outReflectionFactor)
+{
+  // Store the cos of the angle between the incident ray and the surface normal
+  float cosA1 = vdot(incidentRay.dir, intersection->normal);
+  float sinA1 = 0.f;
 
+  // if the cos is less than one
+  if (cosA1 <= -1.0) {
+    // The incident ray points in the opposite direction as the normal
+    // vector and therefore the ray is entering the solid exactly
+    // perpendicularly to the surface.
+    // Hence clamp to lower limit
+    cosA1 = -1.f;
+    sinA1 = 0.f;
+  }
+  else if (cosA1 >= +1.f) {
+    // The incident ray points in the same direction as the normal
+    // vector and therefore the ray is entering the solid exactly
+    // perpendicularly to the surface.
+    // Hence clamp to upper limit
+    cosA1 = 1.f;
+    sinA1 = 0.f;
+  }
+  else {
+    // The incident ray is entering the solid at some positive angle;
+    // Hence calculate the sine of such angle using the trig
+    // identity cos^2 + sin^2 = 1
+    sinA1 = sqrt(1.0 - (cosA1 * cosA1));
+  }
+
+  // Calculate the ratio between the source and the target material 
+  // refractive indices. This is necessary for snell's law
+  const float refIndRatio =
+    refractiveMaterial->refractiveIndex /
+    intersection->object.material.refractiveIndex;
+
+  // Compute the sine of the refracted angle using Snell's law:
+  // the sine of the refracted angle with respect to the normal
+  const float sinA2 = refIndRatio * sinA1;
+
+  // If the refracted angle is more than 90 degrees
+  if (sinA2 <= -1.f || sinA2 >= 1.f) {
+    // The ray experiences total internal reflection, hence
+    // the refracted ray doesn't exist.
+
+    // Inform the caller that the ray experiences total reflection
+    outReflectionFactor = 1.f;
+    // Return a zero contribution
+    Vec contrib; vinit(contrib, 0.f, 0.f, 0.f);
+    return contrib;
+  }
+
+  // Since there is some refracted light, determine its direction.
+  // A quadratic equation needs to be solved for this reason
+  float roots[2];
+  const int numSolutions = solveQuadratic(
+    1.f,
+    (2.f * cosA1),
+    (1.f - (1.f / (refIndRatio * refIndRatio))),
+    roots);
+
+  // Since there usually are 2 solutions for the roots, the correct
+  // one needs to be determined.
+  // This solution is the one which causes the light ray to bend
+  // the smallest angle when comparing its direction with the one
+  // of the incident ray.
+  // It can be found by finding the refracted ray with the largest
+  // positive dot product.
+
+  // Setup the max alignment value for the dot product 
+  float maxAlignment = -0.1;
+
+  // Setup a vector to hold the direction of the refracted ray
+  Vec refractionDir = { 0.f, 0.f, 0.f };
+
+  // For each solution
+  for (int i = 0; i < numSolutions; ++i) {
+    // Calculate the refraction for this solution
+    Vec normalTimesSolution;
+    vsmul(normalTimesSolution, roots[i], intersection->normal);
+    Vec currentSolRef; vadd(currentSolRef, incidentRay.dir, normalTimesSolution);
+
+    float alignment = vdot(incidentRay.dir, currentSolRef);
+
+    // If the alignment for this solution is larger than the
+    // largest calculated before
+    if (alignment > maxAlignment) {
+      // Set this to be the largest
+      maxAlignment = alignment;
+      vassign(refractionDir, currentSolRef);
+    }
+  }
+
+  // TODO Do check for maxAlignment <= 0.f here
+
+  // Determine the cosine of the angle of the refracted ray 
+  float cosA2 = sqrt(1.f - (sinA2 * sinA2));
+  // If the cosine is less than zero
+  if (cosA2 < 0.f) {
+    // Set its polarity to match the one of cosA1
+    cosA2 = -cosA2;
+  }
+
+  // Compute the fraction of the light which is reflected
+  // using the Fresnel's equations, assuming uniform
+  // polarisation of light.
+  const float Rs = polarisedReflection(
+    refractiveMaterial->refractiveIndex,
+    intersection->object.material.refractiveIndex,
+    cosA1,
+    cosA2);
+  const float Rp = polarisedReflection(
+    refractiveMaterial->refractiveIndex,
+    intersection->object.material.refractiveIndex,
+    cosA2,
+    cosA1);
+
+  // Compute total reflection
+  outReflectionFactor = ((Rs + Rp) *0.5);
+
+  // The fraction of light which is not reflected contributes
+  // to refraction and therefore the incoming light ray's intensity
+  // is diminished by this factor
+
+
+  // Construct the refracted ray
+  struct Ray refractedRay;
+  vsmul(refractedRay.intensity, (1.f - outReflectionFactor), incidentRay.intensity);
+  vassign(refractedRay.origin, intersection->point);
+  vassign(refractedRay.dir, refractionDir);
+
+  return rayTrace(
+    spheres,
+    sphNum,
+    lights,
+    lgtNum,
+    refractedRay,
+    &intersection->object.material,
+    traceDepth);
+}*/
 
 __kernel void raytrace( 
 	__global struct Sphere *spheres, 
@@ -536,7 +691,7 @@ __kernel void raytrace(
 	for(int i = 0; i < kAliasFactor; ++i) {
 		for(int j = 0; j < kAliasFactor; ++j) {
 			// Calculate the direction of the ray
-			float x = kPxWorldX + (float)(((float)j) * kAliasFactorInv);
+			/*float x = kPxWorldX + (float)(((float)j) * kAliasFactorInv);
 			float y = kPxWorldY + (float)(((float)i) * kAliasFactorInv);
 			
 			// Set the ray's dir and normalise it
@@ -550,7 +705,7 @@ __kernel void raytrace(
 
 			// Compute the average
 			vadd(pixelCol, pixelCol, currentSampleCol);
-		}
+		}*/
 	}
 	
 	// Write result in destination buffer
