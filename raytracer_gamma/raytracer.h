@@ -418,8 +418,6 @@ struct Ray ray, struct Material *refractiveMaterial,
 
           vmul(calcTemp, matteCalcResult, calcTemp);
 
-          vsadd(calcTemp, 0.1, calcTemp);
-
           vadd(colourSum, calcTemp, colourSum);
 
         }

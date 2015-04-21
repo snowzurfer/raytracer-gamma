@@ -37,7 +37,11 @@ struct RGB
 };
 
 
-void savePPM(const RGB *pixels, const char *filename, const int width, const int height) {
+void savePPM(const RGB *pixels, 
+  const char *filename, 
+  const int width, 
+  const int height,
+  const float maxColourVal) {
   // Check for wrong parameters
   if (width == 0 || height == 0) {
     fprintf(stderr, "Can't save an empty image\n"); 
@@ -61,9 +65,12 @@ void savePPM(const RGB *pixels, const char *filename, const int width, const int
     unsigned char r, g, b;
     // Loop over each pixel in the image, clamp it and convert to byte format
     for (int i = 0; i < width * height; ++i) {
-      r = static_cast<unsigned char>(std::min(1.f, pixels[i].r) * 255);
-      g = static_cast<unsigned char>(std::min(1.f, pixels[i].g) * 255);
-      b = static_cast<unsigned char>(std::min(1.f, pixels[i].b) * 255);
+      r = static_cast<unsigned char>
+        (std::min(1.f, pixels[i].r) * 255 / maxColourVal);
+      g = static_cast<unsigned char>
+        (std::min(1.f, pixels[i].g) * 255 / maxColourVal);
+      b = static_cast<unsigned char>
+        (std::min(1.f, pixels[i].b) * 255 / maxColourVal);
 
       if (r > 1) {
 
@@ -98,7 +105,7 @@ int main(int argc, char** argv)
   // Define the scene
   const unsigned int kScreenWidth = 800;
   const unsigned int kScreenHeight = 600;
-  float zoomFactor = -1.5f;
+  float zoomFactor = -5.f;
   float aliasFactor = 1.f;
 
   size_t globalWorkSize = kScreenWidth * kScreenHeight;
@@ -111,8 +118,8 @@ int main(int argc, char** argv)
   struct Material ballMaterial1; // White
   Vec bm1Gloss; vassign(bm1Gloss, whiteCol);
   Vec bm1Matte; vassign(bm1Matte, whiteCol);
-  setMatOpacity(&ballMaterial1, 0.4f);
-  setMatteGlossBalance(&ballMaterial1, 0.6f, &bm1Matte, &bm1Gloss);
+  setMatOpacity(&ballMaterial1, 0.1f);
+  setMatteGlossBalance(&ballMaterial1, 0.2f, &bm1Matte, &bm1Gloss);
   setMatRefractivityIndex(&ballMaterial1, 1.5500f);
 
   // Setup spheres
@@ -127,7 +134,7 @@ int main(int argc, char** argv)
   unsigned int lgtNum = 1;
   struct Light *hLights =
     (struct Light *)calloc(lgtNum, sizeof(struct Light));
-  vinit(hLights[0].pos, 0.f, 6.f, -10.f);
+  vinit(hLights[0].pos, 0.f, 6.f, 5.f);
   vassign(hLights[0].col, whiteCol);
 
 
@@ -364,11 +371,15 @@ int main(int argc, char** argv)
   }
 
 
+  Vec *pixelsIntermediate = (Vec *)calloc(kScreenHeight * kScreenWidth, sizeof(Vec));
+
+  memcpy(pixelsIntermediate, imagePtr, (kScreenHeight * kScreenWidth * sizeof(RGB)));
 
 
+  float maxColourValue = maxColourValuePixelBuffer(pixelsIntermediate,
+    kScreenWidth * kScreenHeight);
 
-
-
+  free (pixelsIntermediate);
 
   // Print execution time
   /*rtime = wtime() - rtime;
@@ -471,7 +482,7 @@ int main(int argc, char** argv)
   //  pixels[i].b = (float)((i % 256) / 256.f);  /* blue */
   //}
 
-  savePPM(pixels, "testPPM.ppm", kScreenWidth, kScreenHeight);
+  savePPM(pixels, "testPPM.ppm", kScreenWidth, kScreenHeight, maxColourValue);
   free(pixels);
 
  
