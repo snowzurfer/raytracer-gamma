@@ -74,7 +74,7 @@ void savePPM(const RGB *pixels,
 
       if (r > 1) {
 
-        printf("red: %d \n", r);
+        //printf("red: %d \n", r);
       }
 
       // Write the values
@@ -105,7 +105,7 @@ int main(int argc, char** argv)
   // Define the scene
   const unsigned int kScreenWidth = 800;
   const unsigned int kScreenHeight = 600;
-  float zoomFactor = -5.f;
+  float zoomFactor = -4.f;
   float aliasFactor = 1.f;
 
   size_t globalWorkSize = kScreenWidth * kScreenHeight;
@@ -113,30 +113,49 @@ int main(int argc, char** argv)
   // Colours
   Vec whiteCol;
   vinit(whiteCol, 1.f, 1.f, 1.f);
+  Vec lowerWhite;
+  vinit(lowerWhite, 0.5f, 0.5f, 0.5f);
+  Vec redCol;
+  vinit(redCol, 0.8f, 0.f, 0.f);
+  Vec greenCol;
+  vinit(greenCol, 0.0f, 0.7f, 0.f);
+  Vec col1;
+  vinit(col1, 1.0f, 1.7f, 0.3f);
 
   // Setup materials
   struct Material ballMaterial1; // White
   Vec bm1Gloss; vassign(bm1Gloss, whiteCol);
   Vec bm1Matte; vassign(bm1Matte, whiteCol);
-  setMatOpacity(&ballMaterial1, 0.1f);
-  setMatteGlossBalance(&ballMaterial1, 0.2f, &bm1Matte, &bm1Gloss);
+  setMatOpacity(&ballMaterial1, 1.f);
+  setMatteGlossBalance(&ballMaterial1, 0.95f, &bm1Matte, &bm1Gloss);
   setMatRefractivityIndex(&ballMaterial1, 1.5500f);
 
+  struct Material ballMaterial2; // Red
+  Vec bm2Gloss; vassign(bm2Gloss, whiteCol);
+  Vec bm2Matte; vassign(bm2Matte, redCol);
+  setMatOpacity(&ballMaterial2, 0.5f);
+  setMatteGlossBalance(&ballMaterial2, 0.95f, &bm2Matte, &bm2Gloss);
+  setMatRefractivityIndex(&ballMaterial2, 1.5500f);
+
   // Setup spheres
-  unsigned int sphNum = 1;
+  unsigned int sphNum = 2;
   struct Sphere *hSpheres =
     (struct Sphere *)calloc(sphNum, sizeof(struct Sphere));
   hSpheres[0].material = ballMaterial1;
-  vinit(hSpheres[0].pos, 0.f, 0.f, -10.f);
-  hSpheres[0].radius = 3.f;
+  vinit(hSpheres[0].pos, -5.f, 0.f, -16.f);
+  hSpheres[0].radius = 5.f;
+  hSpheres[1].material = ballMaterial2;
+  vinit(hSpheres[1].pos, -8.f, 3.f, -8.f);
+  hSpheres[1].radius = 3.f;
 
   // Setup light sources
-  unsigned int lgtNum = 1;
+  unsigned int lgtNum = 2;
   struct Light *hLights =
     (struct Light *)calloc(lgtNum, sizeof(struct Light));
-  vinit(hLights[0].pos, 0.f, 6.f, 5.f);
-  vassign(hLights[0].col, whiteCol);
-
+  vinit(hLights[0].pos, -45.f, 10.f, 85.f);
+  vassign(hLights[0].col, col1);
+  vinit(hLights[1].pos, -5.f, 90.f, -5.f);
+  vassign(hLights[1].col, lowerWhite);
 
 
 
@@ -146,9 +165,6 @@ int main(int argc, char** argv)
     hA[i] = rand() / (float)RAND_MAX;
     hB[i] = rand() / (float)RAND_MAX;
   }
-
-
-
 
 
 
@@ -315,16 +331,18 @@ int main(int argc, char** argv)
 
   int pixelsCounter = 0;
 
+  // Calculate size of an alias step in world coordinates
+  const float kAliasFactorStepInv = 1.f / kRayXStep;
+  // Calculate total size of samples to be taken
+  const float kSamplesTot = aliasFactor * aliasFactor;
+  // Also its inverse
+  const float kSamplesTotinv = 1.f / kSamplesTot;
+
   for (int y = 0; y < kScreenWidth * kScreenHeight; ++y, pixelsCounter += 3) {
     // Retrieve the global ID of the kernel
     const unsigned gid = y;
 
-    // Calculate inverse of aliasFactor
-    const float kAliasFactorInv = 1.f / aliasFactor;
-    // Calculate total size of samples to be taken
-    const float kSamplesTot = aliasFactor * aliasFactor;
-    // Also its inverse
-    const cl_float kSamplesTotinv = 1.f / kSamplesTot;
+    
 
     // Calculate world position of pixel being currently worked on
     const float kPxWorldX = (((float)(gid % kScreenWidth) - (kScreenWidth * 0.5f))) * kRayXStep;
@@ -347,8 +365,8 @@ int main(int argc, char** argv)
     for (int i = 0; i < aliasFactor; ++i) {
       for (int j = 0; j < aliasFactor; ++j) {
         // Calculate the direction of the ray
-        float x = kPxWorldX + (float)(((float)j) * kAliasFactorInv);
-        float y = kPxWorldY + (float)(((float)i) * kAliasFactorInv);
+        float x = kPxWorldX + (float)(((float)j) * kAliasFactorStepInv);
+        float y = kPxWorldY + (float)(((float)i) * kAliasFactorStepInv);
 
         // Set the ray's dir and normalise it
         vinit(ray.dir, x, y, zoomFactor); vnorm(ray.dir);
