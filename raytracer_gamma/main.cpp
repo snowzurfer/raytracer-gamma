@@ -106,7 +106,7 @@ int main(int argc, char** argv)
   const unsigned int kScreenWidth = 800;
   const unsigned int kScreenHeight = 600;
   float zoomFactor = -4.f;
-  float aliasFactor = 1.f;
+  float aliasFactor = 3.f;
 
   size_t globalWorkSize = kScreenWidth * kScreenHeight;
 
@@ -343,7 +343,7 @@ int main(int argc, char** argv)
   int pixelsCounter = 0;
 
   // Calculate size of an alias step in world coordinates
-  const float kAliasFactorStepInv = 1.f / kRayXStep;
+  const float kAliasFactorStepInv = kRayXStep / aliasFactor;
   // Calculate total size of samples to be taken
   const float kSamplesTot = aliasFactor * aliasFactor;
   // Also its inverse

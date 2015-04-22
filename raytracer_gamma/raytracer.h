@@ -54,6 +54,12 @@ struct Intersection {
 
 // Determine the matte reflection contribution to the illumination
 // of an intersection point
+struct Ray calculateReflection(
+struct Intersection *intersection,
+struct Ray incidentRay);
+
+// Determine the matte refraction contribution to the illumination
+// of an intersection point
 struct Ray calculateRefraction(
 #ifdef GPU_KERNEL
   OCL_GLOBAL_BUFFER
@@ -67,24 +73,8 @@ struct Intersection *intersection,
 struct Ray incidentRay,
   int traceDepth,
   const struct Material *refractiveMaterial,
-  struct Material *targetMaterial,
+struct Material *targetMaterial,
   float *outReflectionFactor);
-
-// Determine the matte reflection contribution to the illumination
-// of an intersection point
-Vec calculateReflection(
-#ifdef GPU_KERNEL
-  OCL_GLOBAL_BUFFER
-#endif
-struct Sphere *spheres, const unsigned int sphNum,
-#ifdef GPU_KERNEL
-  OCL_GLOBAL_BUFFER
-#endif
-struct Light *lights, const unsigned int lgtNum,
-struct Intersection *intersection,
-struct Ray incidentRay,
-int traceDepth,
-struct Material *refractiveMaterial);
 
 
 void setMatMatte(struct Material *m, const Vec *col) {
@@ -561,24 +551,28 @@ struct Ray ray, struct Material *refractiveMaterial,
 
         // If the contribution is significant
         if (isSignificant(&reflectionCol)) {
-          // Compute a ray to pass in thefunction
+          // Compute a ray to pass in the function
           struct Ray reflectionRay;
           vassign(reflectionRay.dir, ray.dir);
           vassign(reflectionRay.intensity, reflectionCol);
           vassign(reflectionRay.origin, ray.origin);
 
-          // Calculate the 
-          Vec reflectionResult = calculateReflection(
+
+          // Calculate the reflected ray
+          struct Ray refractedRay = calculateReflection(
+            &intersection,
+            reflectionRay);
+
+          Vec reflCalcResult = rayTrace(
             spheres,
             sphNum,
             lights,
             lgtNum,
-            &intersection,
-            reflectionRay,
-            traceDepth,
-            refractiveMaterial);
+            refractedRay,
+            refractiveMaterial,
+            traceDepth + 1);
 
-          vadd(colourSum, reflectionResult, colourSum);
+          vadd(colourSum, reflCalcResult, colourSum);
         }
       }
     }
@@ -770,19 +764,9 @@ struct Ray incidentRay,
   return refractedRay;
 }
 
-Vec calculateReflection(
-#ifdef GPU_KERNEL
-  OCL_GLOBAL_BUFFER
-#endif
-struct Sphere *spheres, const unsigned int sphNum,
-#ifdef GPU_KERNEL
-  OCL_GLOBAL_BUFFER
-#endif
-struct Light *lights, const unsigned int lgtNum,
+struct Ray calculateReflection(
 struct Intersection *intersection,
-struct Ray incidentRay,
-  int traceDepth,
-  struct Material *refractiveMaterial)
+struct Ray incidentRay)
 {
 
   // Calculate the direction of the reflected ray
@@ -804,12 +788,5 @@ struct Ray incidentRay,
   vadd(reflectedRay.origin, reflectedRay.origin, smallShift);
 
   // Trace the ray in the new direction
-  return rayTrace(
-    spheres,
-    sphNum,
-    lights,
-    lgtNum,
-    reflectedRay,
-    refractiveMaterial,
-    traceDepth + 1);
+  return reflectedRay;
 }
