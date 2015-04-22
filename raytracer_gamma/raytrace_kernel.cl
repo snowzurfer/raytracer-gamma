@@ -54,22 +54,6 @@ struct Intersection {
   float squaredDist;
 };
 
-// Determine the matte reflection contribution to the illumination
-// of an intersection point
-Vec calculateRefraction(
-#ifdef GPU_KERNEL
-  OCL_GLOBAL_BUFFER
-#endif
-struct Sphere *spheres, const unsigned int sphNum,
-#ifdef GPU_KERNEL
-  OCL_GLOBAL_BUFFER
-#endif
-struct Light *lights, const unsigned int lgtNum,
-struct Intersection *intersection,
-struct Ray incidentRay,
-  int traceDepth,
-  const struct Material *refractiveMaterial,
-  float &outReflectionFactor);
 
 void setMatMatte(struct Material *m, const Vec *col) {
   vassign(m->matteColour, *col);
@@ -90,15 +74,23 @@ void setMatteGlossBalance(struct Material *m, const float glossFactor,
   Vec newGloss; vsmul(newGloss, glossFactor, *gloss);
   setMatGloss(m, &newGloss);
 }
+
+void setMatRefractivityIndex(struct Material *m, const float refIndex) {
+  m->refractiveIndex = refIndex;
+}
+
 // Intersection of a sphere with a ray; it returns if the collision
 // was found and the parameter for the distance from the ray's
 // origin to the intersection
 bool raySphere(
 #ifdef GPU_KERNEL
-OCL_GLOBAL_BUFFER
+  OCL_GLOBAL_BUFFER
 #endif
 struct Sphere * sphere, struct Ray *ray, float *t) {
-  const float kEPSILON = 1.0e-6f;
+  const float kEPSILON = 1.0e-5f;
+
+  // The result of the test
+  bool result = false;
 
   // Calculate the coefficients of the quadratic equation
   //     au^2 + bu + c = 0.
@@ -127,31 +119,41 @@ struct Sphere * sphere, struct Ray *ray, float *t) {
       (-b - root) / denom
     };
 
-    // Select the smallest param intersection value
-    int smaller = 0;
-    if (u[0] > kEPSILON && u[0] < u[1]) {
-      *t = u[0];
-      return true;
+    // Smallest value found
+    float smallestT = 10000.f;
+    // For each root
+    for (int i = 0; i < 2; ++i) {
+      // If the root is more than a threshold value
+      if (u[i] > kEPSILON) {
+        // If the root is larger than the previous
+        // smallest
+        if (u[i] < smallestT) {
+          // Set it to to be the smallest
+          smallestT = u[i];
+          // Report success of collision
+          result = true;
+
+        }
+      }
     }
-    else if (u[1] > kEPSILON && u[1] < u[0]) {
-      *t = u[1];
-      return true;
-    }
+
+    // Set the root to be returned
+    *t = smallestT;
   }
 
-  return false;
+  return result;
 }
 
 // Calculates eventual intersection of ray with the scene and returns
 // the intersection a populated intersection object
 bool calcIntersection(
 #ifdef GPU_KERNEL
-OCL_GLOBAL_BUFFER
+  OCL_GLOBAL_BUFFER
 #endif
 struct Sphere *spheres, const unsigned int sphNum,
-struct Ray *ray, 
+struct Ray *ray,
 #ifdef GPU_KERNEL
-OCL_PRIVATE_BUFFER
+  OCL_PRIVATE_BUFFER
 #endif
 struct Intersection *intersection)
 {
@@ -239,19 +241,48 @@ bool isSignificant(const Vec *colour) {
     (colour->z >= kMinOpticalIntesity);
 }
 
+// Returns the index to the sphere which contains the point, if any
+int primaryContainer(
+#ifdef GPU_KERNEL
+  OCL_GLOBAL_BUFFER
+#endif
+struct Sphere *spheres, const unsigned int sphNum,
+  const Vec *pt) {
+
+  const float kEPSILON = 1.0e-6f;
+
+  // For each sphere in the scene
+  for (int i = 0; i < sphNum; ++i) {
+    // Add a little bit to the actual radius to be more tolerant
+    // of rounding errors that would incorrectly exclude a 
+    // point that should be inside the sphere.
+    const float r = spheres[i].radius + kEPSILON;
+
+    // A point is inside the sphere if the square of its distance 
+    // from the center is within the square of the radius.
+    Vec dist; vsub(dist, *pt, spheres[i].pos);
+    if((vdot(dist, dist) <= (r * r))) {
+      return i;
+    }
+  }
+
+  return -1;
+}
+
 bool hasClearLineOfSight(
 #ifdef GPU_KERNEL
-OCL_GLOBAL_BUFFER
+  OCL_GLOBAL_BUFFER
 #endif
 struct Sphere *spheres, const unsigned int sphNum,
   const Vec *ptA, const Vec *ptB) {
   // Calculate direction from A to B
-  Vec dir; vsub(dir, *ptA, *ptB);
+  Vec dir; vsub(dir, *ptB, *ptA);  
   const float squaredDistGap = vdot(dir, dir);
 
   // Construct a ray
   struct Ray ray;
   ray.dir = dir;
+  vnorm(ray.dir);
   ray.origin = *ptA;
 
   // Intersection to be returned from the function
@@ -281,11 +312,11 @@ struct Sphere *spheres, const unsigned int sphNum,
 // of an intersection point
 Vec calculateMatte(
 #ifdef GPU_KERNEL
-OCL_GLOBAL_BUFFER
+  OCL_GLOBAL_BUFFER
 #endif
 struct Sphere *spheres, const unsigned int sphNum,
 #ifdef GPU_KERNEL
-OCL_GLOBAL_BUFFER
+  OCL_GLOBAL_BUFFER
 #endif
   const struct Light *lights, const unsigned int lgtNum,
   const struct Intersection *intersection)
@@ -307,7 +338,7 @@ OCL_GLOBAL_BUFFER
       Vec dist; vsub(dist, light.pos, intersection->point);
       // Direction
       Vec dir = dist; vnorm(dir);
-      
+
       // Calculate the incidence of the light ray with the surface normal
       const float incidence = vdot(intersection->normal, dir);
 
@@ -337,96 +368,40 @@ OCL_GLOBAL_BUFFER
 
 // Calculate the reflection using fresnel's equations
 float polarisedReflection(
-	float n1,		// The source material's index of refraction
-	float n2,		// The target material's index of refraction
-	float cosA1,	// Incident or outgoing ray's angle cosine
-	float cosA2)	// Incident or outgoing ray's angle cosine
+  float n1,		// The source material's index of refraction
+  float n2,		// The target material's index of refraction
+  float cosA1,	// Incident or outgoing ray's angle cosine
+  float cosA2)	// Incident or outgoing ray's angle cosine
 {
-	const float kEPSILON = 1.0e-6f;
-	
-	const float left = n1 * cosA1;
-	const float right = n2 * cosA2;
-	double numerator = left - right;
-	double denominator = left + right;
-	
-	// Square the denominator
-	denominator *= denominator;
-	
-	// If the denominator is approx zero
-	if(denominator < kEPSILON) {
-		// Assume complete reflection
-		return 1.f;
-	}
-	
-	// Compute reflection
-	float reflection = (numerator * numerator) / denominator;
-	
-	// If the reflection value is more than one
-	if(reflection > 1.f) {
-		// Cap it
-		reflection = 1.f;
-	}
-	
-	return reflection;
+  const float kEPSILON = 1.0e-6f;
 
-}
-// Determine the matte reflection contribution to the illumination
-// of an intersection point
-Vec calculateRefraction(
-#ifdef GPU_KERNEL
-OCL_GLOBAL_BUFFER
-#endif
-struct Sphere *spheres, const unsigned int sphNum,
-#ifdef GPU_KERNEL
-OCL_GLOBAL_BUFFER
-#endif
-  const struct Light *lights, const unsigned int lgtNum,
-  const struct Intersection *intersection)
-{
-  // Colour to be computed and returned
-  Vec colourSum; vinit(colourSum, 0.f, 0.f, 0.f);
+  const float left = n1 * cosA1;
+  const float right = n2 * cosA2;
+  float numerator = left - right;
+  float denominator = left + right;
 
-  // For each light source
-  for (int i = 0; i < lgtNum; ++i) {
-    // Create a copy of the current light source
-    const struct Light light = *(lights + i);
+  // Square the denominator
+  denominator *= denominator;
 
-    // If there isn't any object in the way between the intersection point
-    // and the light source
-    if (hasClearLineOfSight(spheres, sphNum, &intersection->point,
-      &light.pos))
-    {
-      // Distance vector from intersection point to light source
-      Vec dist; vsub(dist, light.pos, intersection->point);
-      // Direction
-      Vec dir = dist; vnorm(dir);
-      
-      // Calculate the incidence of the light ray with the surface normal
-      const float incidence = vdot(intersection->normal, dir);
-
-      // If the dot prod is negative it means that is hitting the
-      // surface from the inside of the object.
-      // If zero it's grazing the edge of the object.
-      // Only when the dot prod is positive this light source contributes
-      if (incidence > 0.f) {
-
-        // Calculate contribution based on the inverse-square law
-        // and the incidence value
-        const float distMagSquared = vdot(dist, dist);
-        const float intensity = incidence / distMagSquared;
-
-        // Scale light's colour depending on the intensity
-        Vec scaledLightColour; vsmul(scaledLightColour, intensity, light.col);
-
-        // Add it to the total sum
-        vadd(colourSum, colourSum, scaledLightColour);
-      }
-
-    }
+  // If the denominator is approx zero
+  if (denominator < kEPSILON) {
+    // Assume complete reflection
+    return 1.f;
   }
 
-  return colourSum;
-}*/
+  // Compute reflection
+  float reflection = (numerator * numerator) / denominator;
+
+  // If the reflection value is more than one
+  if (reflection > 1.f) {
+    // Cap it
+    reflection = 1.f;
+  }
+
+  return reflection;
+
+}
+
 
 
 
@@ -437,58 +412,198 @@ OCL_GLOBAL_BUFFER
 #endif
 struct Sphere *spheres, const unsigned int sphNum,
 #ifdef GPU_KERNEL
-OCL_GLOBAL_BUFFER
+  OCL_GLOBAL_BUFFER
 #endif
 struct Light *lights, const unsigned int lgtNum,
-struct Ray *ray, struct Material *refractiveMaterial,
-  int traceDepth)
-{
-  const int kMaxTraceDepth = 2;
+struct Ray ray, struct Material *refractiveMaterial,
+  int traceDepth);
 
-  // Colour to be computed and returned
-  Vec colourSum; vinit(colourSum, 0.f, 0.f, 0.f);
+// // Determine the matte reflection contribution to the illumination
+// // of an intersection point
+// Vec calculateRefraction(
+// #ifdef GPU_KERNEL
+  // OCL_GLOBAL_BUFFER
+// #endif
+// struct Sphere *spheres, const unsigned int sphNum,
+// #ifdef GPU_KERNEL
+  // OCL_GLOBAL_BUFFER
+// #endif
+// struct Light *lights, const unsigned int lgtNum,
+// struct Intersection *intersection,
+// struct Ray incidentRay,
+  // int traceDepth,
+  // const struct Material *refractiveMaterial,
+  // float outReflectionFactor)
+// {
+  // // Store the cos of the angle between the incident ray and the surface normal
+  // float cosA1 = vdot(incidentRay.dir, intersection->normal);
+  // float sinA1 = 0.f;
 
-  // Intersection to be returned from the function
-  struct Intersection intersection;
-  if (calcIntersection(spheres, sphNum, ray, &intersection)) {
-    // Check for end of recursion condition
-    if (traceDepth <= kMaxTraceDepth) {
-      // If the ray still has significant intensity
-      if (isSignificant(&ray->intensity)) {
-        // Calculate the opacity and transparency available
-        // of the light ray.
-        const float opacity = intersection.object.material.opacity;
-        const float transparency = 1.f - opacity;
+  // // if the cos is less than one
+  // if (cosA1 <= -1.0) {
+    // // The incident ray points in the opposite direction as the normal
+    // // vector and therefore the ray is entering the solid exactly
+    // // perpendicularly to the surface.
+    // // Hence clamp to lower limit
+    // cosA1 = -1.f;
+    // sinA1 = 0.f;
+  // }
+  // else if (cosA1 >= +1.f) {
+    // // The incident ray points in the same direction as the normal
+    // // vector and therefore the ray is entering the solid exactly
+    // // perpendicularly to the surface.
+    // // Hence clamp to upper limit
+    // cosA1 = 1.f;
+    // sinA1 = 0.f;
+  // }
+  // else {
+    // // The incident ray is entering the solid at some positive angle;
+    // // Hence calculate the sine of such angle using the trig
+    // // identity cos^2 + sin^2 = 1
+    // sinA1 = sqrt(1.0 - (cosA1 * cosA1));
+  // }
 
-        // If the object is opaque
-        if (opacity > 0.f) {
-          // Calculate matte colour
-          Vec calcTemp; vmul(calcTemp, ray->intensity, intersection.object.material.matteColour);
-          vsmul(calcTemp, opacity, calcTemp);
-          Vec matteCalcResult = calculateMatte(spheres, sphNum, lights,
-            lgtNum, &intersection);
 
-          vmul(calcTemp, matteCalcResult, calcTemp);
+  // // Find the refractive index of the material after the collision point
+  // const float kSmallShift = 0.01f;
+  // struct Material targetMaterial;
+  // {
+    // Vec testPt; vsmul(testPt, kSmallShift, incidentRay.dir);
+    // vadd(testPt, testPt, intersection->point);
+    // int containerNum = primaryContainer(spheres, sphNum, &testPt);
 
-          vsadd(calcTemp, 0.1, calcTemp);
+    // struct Material bgMaterial;
+    // Vec black; vinit(black, 0.f, 0.f, 0.f);
+    // setMatteGlossBalance(&bgMaterial, 0.f, &black, &black);
+    // setMatRefractivityIndex(&bgMaterial, 1.00f);
 
-          vadd(colourSum, calcTemp, colourSum);
+    // // If the point was within a sphere
+    // if (containerNum != -1) {
+      // // Read the material of that sphere
+      // targetMaterial = spheres[containerNum].material;
+    // }
+    // else {
+      // // Use the ambient's material
+      // targetMaterial = bgMaterial;
+    // }
+  // }
 
-        }
-      }
-    }
-  }
-  else {
-    // Return background colour
-    vmul(colourSum, ray->intensity, refractiveMaterial->matteColour)
-  }
+  // // Calculate the ratio between the source and the target material 
+  // // refractive indices. This is necessary for snell's law
+  // const float refIndRatio =
+    // refractiveMaterial->refractiveIndex /
+    // targetMaterial.refractiveIndex;
 
-  return colourSum;
-}
-/*
-// Determine the matte reflection contribution to the illumination
-// of an intersection point
-Vec calculateRefraction(
+  // // Compute the sine of the refracted angle using Snell's law:
+  // // the sine of the refracted angle with respect to the normal
+  // const float sinA2 = refIndRatio * sinA1;
+
+  // // If the refracted angle is more than 90 degrees
+  // if (sinA2 <= -1.f || sinA2 >= 1.f) {
+    // // The ray experiences total internal reflection, hence
+    // // the refracted ray doesn't exist.
+
+    // // Inform the caller that the ray experiences total reflection
+    // outReflectionFactor = 1.f;
+    // // Return a zero contribution
+    // Vec contrib; vinit(contrib, 0.f, 0.f, 0.f);
+    // return contrib;
+  // }
+
+  // // Since there is some refracted light, determine its direction.
+  // // A quadratic equation needs to be solved for this reason
+  // float roots[2];
+  // const int numSolutions = solveQuadratic(
+    // 1.f,
+    // (2.f * cosA1),
+    // (1.f - (1.f / (refIndRatio * refIndRatio))),
+    // roots);
+
+  // // Since there usually are 2 solutions for the roots, the correct
+  // // one needs to be determined.
+  // // This solution is the one which causes the light ray to bend
+  // // the smallest angle when comparing its direction with the one
+  // // of the incident ray.
+  // // It can be found by finding the refracted ray with the largest
+  // // positive dot product.
+
+  // // Setup the max alignment value for the dot product 
+  // float maxAlignment = -0.1;
+
+  // // Setup a vector to hold the direction of the refracted ray
+  // Vec refractionDir = { 0.f, 0.f, 0.f };
+
+  // // For each solution
+  // for (int i = 0; i < numSolutions; ++i) {
+    // // Calculate the refraction for this solution
+    // Vec normalTimesSolution;
+    // vsmul(normalTimesSolution, roots[i], intersection->normal);
+    // Vec currentSolRef; vadd(currentSolRef, incidentRay.dir, normalTimesSolution);
+
+    // float alignment = vdot(incidentRay.dir, currentSolRef);
+
+    // // If the alignment for this solution is larger than the
+    // // largest calculated before
+    // if (alignment > maxAlignment) {
+      // // Set this to be the largest
+      // maxAlignment = alignment;
+      // vassign(refractionDir, currentSolRef);
+    // }
+  // }
+
+  // // TODO Do check for maxAlignment <= 0.f here
+
+  // // Determine the cosine of the angle of the refracted ray 
+  // float cosA2 = sqrt(1.f - (sinA2 * sinA2));
+  // // If the cosine is less than zero
+  // if (cosA1 < 0.f) {
+    // // Set its polarity to match the one of cosA1
+    // cosA2 = -cosA2;
+  // }
+
+  // // Compute the fraction of the light which is reflected
+  // // using the Fresnel's equations, assuming uniform
+  // // polarisation of light.
+  // const float Rs = polarisedReflection(
+    // refractiveMaterial->refractiveIndex,
+    // intersection->object.material.refractiveIndex,
+    // cosA1,
+    // cosA2);
+  // const float Rp = polarisedReflection(
+    // refractiveMaterial->refractiveIndex,
+    // intersection->object.material.refractiveIndex,
+    // cosA2,
+    // cosA1);
+
+  // // Compute total reflection
+  // outReflectionFactor = ((Rs + Rp) *0.5);
+
+  // // The fraction of light which is not reflected contributes
+  // // to refraction and therefore the incoming light ray's intensity
+  // // is diminished by this factor
+
+
+  // // Construct the refracted ray
+  // struct Ray refractedRay;
+  // vsmul(refractedRay.intensity, (1.f - outReflectionFactor), incidentRay.intensity);
+  // vassign(refractedRay.origin, intersection->point);
+  // vassign(refractedRay.dir, refractionDir);
+  // // Shift the ray by a little amount from the surface it collided with
+  // /*Vec smallShift; vsmul(smallShift, kSmallShift, refractedRay.dir);
+  // vadd(refractedRay.origin, refractedRay.origin, smallShift);*/
+
+  // return rayTrace(
+    // spheres,
+    // sphNum,
+    // lights,
+    // lgtNum,
+    // refractedRay,
+    // &targetMaterial,
+    // traceDepth + 1);
+// }
+
+
+Vec calculateReflection(
 #ifdef GPU_KERNEL
   OCL_GLOBAL_BUFFER
 #endif
@@ -500,147 +615,329 @@ struct Light *lights, const unsigned int lgtNum,
 struct Intersection *intersection,
 struct Ray incidentRay,
   int traceDepth,
-  const struct Material *refractiveMaterial,
-  float &outReflectionFactor)
+  struct Material *refractiveMaterial)
 {
-  // Store the cos of the angle between the incident ray and the surface normal
-  float cosA1 = vdot(incidentRay.dir, intersection->normal);
-  float sinA1 = 0.f;
 
-  // if the cos is less than one
-  if (cosA1 <= -1.0) {
-    // The incident ray points in the opposite direction as the normal
-    // vector and therefore the ray is entering the solid exactly
-    // perpendicularly to the surface.
-    // Hence clamp to lower limit
-    cosA1 = -1.f;
-    sinA1 = 0.f;
-  }
-  else if (cosA1 >= +1.f) {
-    // The incident ray points in the same direction as the normal
-    // vector and therefore the ray is entering the solid exactly
-    // perpendicularly to the surface.
-    // Hence clamp to upper limit
-    cosA1 = 1.f;
-    sinA1 = 0.f;
-  }
-  else {
-    // The incident ray is entering the solid at some positive angle;
-    // Hence calculate the sine of such angle using the trig
-    // identity cos^2 + sin^2 = 1
-    sinA1 = sqrt(1.0 - (cosA1 * cosA1));
-  }
+  // Calculate the direction of the reflected ray
+  const float perp = 2.f * (vdot(incidentRay.dir, intersection->normal));
+  Vec perpTimesNormal;  vsmul(perpTimesNormal, perp, intersection->normal);
+  Vec reflectedDir;
+  vsub(reflectedDir, incidentRay.dir, perpTimesNormal);
+  // Normalise it
+  vnorm(reflectedDir);
 
-  // Calculate the ratio between the source and the target material 
-  // refractive indices. This is necessary for snell's law
-  const float refIndRatio =
-    refractiveMaterial->refractiveIndex /
-    intersection->object.material.refractiveIndex;
+  // Compute the new reflected ray
+  const float kSmallShift = 0.01f;
+  struct Ray reflectedRay;
+  vassign(reflectedRay.dir, reflectedDir);
+  vassign(reflectedRay.origin, intersection->point);
+  vassign(reflectedRay.intensity, incidentRay.intensity);
+  // Shift the ray by a little amount from the surface it collided with
+  Vec smallShift; vsmul(smallShift, kSmallShift, reflectedRay.dir);
+  vadd(reflectedRay.origin, reflectedRay.origin, smallShift);
 
-  // Compute the sine of the refracted angle using Snell's law:
-  // the sine of the refracted angle with respect to the normal
-  const float sinA2 = refIndRatio * sinA1;
-
-  // If the refracted angle is more than 90 degrees
-  if (sinA2 <= -1.f || sinA2 >= 1.f) {
-    // The ray experiences total internal reflection, hence
-    // the refracted ray doesn't exist.
-
-    // Inform the caller that the ray experiences total reflection
-    outReflectionFactor = 1.f;
-    // Return a zero contribution
-    Vec contrib; vinit(contrib, 0.f, 0.f, 0.f);
-    return contrib;
-  }
-
-  // Since there is some refracted light, determine its direction.
-  // A quadratic equation needs to be solved for this reason
-  float roots[2];
-  const int numSolutions = solveQuadratic(
-    1.f,
-    (2.f * cosA1),
-    (1.f - (1.f / (refIndRatio * refIndRatio))),
-    roots);
-
-  // Since there usually are 2 solutions for the roots, the correct
-  // one needs to be determined.
-  // This solution is the one which causes the light ray to bend
-  // the smallest angle when comparing its direction with the one
-  // of the incident ray.
-  // It can be found by finding the refracted ray with the largest
-  // positive dot product.
-
-  // Setup the max alignment value for the dot product 
-  float maxAlignment = -0.1;
-
-  // Setup a vector to hold the direction of the refracted ray
-  Vec refractionDir = { 0.f, 0.f, 0.f };
-
-  // For each solution
-  for (int i = 0; i < numSolutions; ++i) {
-    // Calculate the refraction for this solution
-    Vec normalTimesSolution;
-    vsmul(normalTimesSolution, roots[i], intersection->normal);
-    Vec currentSolRef; vadd(currentSolRef, incidentRay.dir, normalTimesSolution);
-
-    float alignment = vdot(incidentRay.dir, currentSolRef);
-
-    // If the alignment for this solution is larger than the
-    // largest calculated before
-    if (alignment > maxAlignment) {
-      // Set this to be the largest
-      maxAlignment = alignment;
-      vassign(refractionDir, currentSolRef);
-    }
-  }
-
-  // TODO Do check for maxAlignment <= 0.f here
-
-  // Determine the cosine of the angle of the refracted ray 
-  float cosA2 = sqrt(1.f - (sinA2 * sinA2));
-  // If the cosine is less than zero
-  if (cosA2 < 0.f) {
-    // Set its polarity to match the one of cosA1
-    cosA2 = -cosA2;
-  }
-
-  // Compute the fraction of the light which is reflected
-  // using the Fresnel's equations, assuming uniform
-  // polarisation of light.
-  const float Rs = polarisedReflection(
-    refractiveMaterial->refractiveIndex,
-    intersection->object.material.refractiveIndex,
-    cosA1,
-    cosA2);
-  const float Rp = polarisedReflection(
-    refractiveMaterial->refractiveIndex,
-    intersection->object.material.refractiveIndex,
-    cosA2,
-    cosA1);
-
-  // Compute total reflection
-  outReflectionFactor = ((Rs + Rp) *0.5);
-
-  // The fraction of light which is not reflected contributes
-  // to refraction and therefore the incoming light ray's intensity
-  // is diminished by this factor
-
-
-  // Construct the refracted ray
-  struct Ray refractedRay;
-  vsmul(refractedRay.intensity, (1.f - outReflectionFactor), incidentRay.intensity);
-  vassign(refractedRay.origin, intersection->point);
-  vassign(refractedRay.dir, refractionDir);
-
+  // Trace the ray in the new direction
   return rayTrace(
     spheres,
     sphNum,
     lights,
     lgtNum,
-    refractedRay,
-    &intersection->object.material,
-    traceDepth);
-}*/
+    reflectedRay,
+    refractiveMaterial,
+    traceDepth + 1);
+}
+
+
+Vec rayTrace(
+#ifdef GPU_KERNEL
+OCL_GLOBAL_BUFFER
+#endif
+struct Sphere *spheres, const unsigned int sphNum,
+#ifdef GPU_KERNEL
+  OCL_GLOBAL_BUFFER
+#endif
+struct Light *lights, const unsigned int lgtNum,
+struct Ray ray, struct Material *refractiveMaterial,
+  int traceDepth)
+{
+  const int kMaxTraceDepth = 3;
+
+  // Colour to be computed and returned
+  Vec colourSum; vinit(colourSum, 0.f, 0.f, 0.f);
+
+  // Intersection to be returned from the function
+  struct Intersection intersection;
+  if (calcIntersection(spheres, sphNum, &ray, &intersection)) {
+    // Check for end of recursion condition
+    if (traceDepth <= kMaxTraceDepth) {
+      // If the ray still has significant intensity
+      if (isSignificant(&ray.intensity)) {
+        // Calculate the opacity and transparency available
+        // of the light ray.
+        const float opacity = intersection.object.material.opacity;
+        const float transparency = 1.f - opacity;
+
+        // If the object is opaque
+        if (opacity > 0.f) {
+          // Calculate matte colour
+          Vec calcTemp; vmul(calcTemp, ray.intensity, intersection.object.material.matteColour);
+          vsmul(calcTemp, opacity, calcTemp);
+          Vec matteCalcResult = calculateMatte(spheres, sphNum, lights,
+            lgtNum, &intersection);
+
+          if (isSignificant(&matteCalcResult)) {
+            int lol = 0;
+          }
+
+          vmul(calcTemp, matteCalcResult, calcTemp);
+
+          vadd(colourSum, calcTemp, colourSum);
+
+        }
+
+        // Variable to hold the fraction of light which is reflected.
+        // It's calculated by the calculateRefraction function if there
+        // is transparency.
+        float refractiveReflectionFactor = 0.f;
+
+        
+
+        // If there is transparency
+        if (transparency > 0.f) {
+          // Calculate a ray to pass in the calculate refraction method
+          struct Ray refractionRay;
+          vassign(refractionRay.dir, ray.dir);
+          vsmul(refractionRay.intensity, transparency, ray.intensity);
+          vassign(refractionRay.origin, ray.origin);
+		  Vec refrCalcResult = {0.f, 0.f, 0.f};
+				// Store the cos of the angle between the incident ray and the surface normal
+			  float cosA1 = vdot(refractionRay.dir, intersection->normal);
+			  float sinA1 = 0.f;
+
+			  // if the cos is less than one
+			  if (cosA1 <= -1.0) {
+				// The incident ray points in the opposite direction as the normal
+				// vector and therefore the ray is entering the solid exactly
+				// perpendicularly to the surface.
+				// Hence clamp to lower limit
+				cosA1 = -1.f;
+				sinA1 = 0.f;
+			  }
+			  else if (cosA1 >= +1.f) {
+				// The incident ray points in the same direction as the normal
+				// vector and therefore the ray is entering the solid exactly
+				// perpendicularly to the surface.
+				// Hence clamp to upper limit
+				cosA1 = 1.f;
+				sinA1 = 0.f;
+			  }
+			  else {
+				// The incident ray is entering the solid at some positive angle;
+				// Hence calculate the sine of such angle using the trig
+				// identity cos^2 + sin^2 = 1
+				sinA1 = sqrt(1.0 - (cosA1 * cosA1));
+			  }
+
+
+			  // Find the refractive index of the material after the collision point
+			  const float kSmallShift = 0.01f;
+			  struct Material targetMaterial;
+			  {
+				Vec testPt; vsmul(testPt, kSmallShift, incidentRay.dir);
+				vadd(testPt, testPt, intersection->point);
+				int containerNum = primaryContainer(spheres, sphNum, &testPt);
+
+				struct Material bgMaterial;
+				Vec black; vinit(black, 0.f, 0.f, 0.f);
+				setMatteGlossBalance(&bgMaterial, 0.f, &black, &black);
+				setMatRefractivityIndex(&bgMaterial, 1.00f);
+
+				// If the point was within a sphere
+				if (containerNum != -1) {
+				  // Read the material of that sphere
+				  targetMaterial = spheres[containerNum].material;
+				}
+				else {
+				  // Use the ambient's material
+				  targetMaterial = bgMaterial;
+				}
+			  }
+
+			  // Calculate the ratio between the source and the target material 
+			  // refractive indices. This is necessary for snell's law
+			  const float refIndRatio =
+				refractiveMaterial->refractiveIndex /
+				targetMaterial.refractiveIndex;
+
+			  // Compute the sine of the refracted angle using Snell's law:
+			  // the sine of the refracted angle with respect to the normal
+			  const float sinA2 = refIndRatio * sinA1;
+
+			  // If the refracted angle is more than 90 degrees
+			  if (sinA2 <= -1.f || sinA2 >= 1.f) {
+				// The ray experiences total internal reflection, hence
+				// the refracted ray doesn't exist.
+
+				// Inform the caller that the ray experiences total reflection
+				outReflectionFactor = 1.f;
+				// Return a zero contribution
+				Vec contrib; vinit(contrib, 0.f, 0.f, 0.f);
+				return contrib;
+			  }
+
+			  // Since there is some refracted light, determine its direction.
+			  // A quadratic equation needs to be solved for this reason
+			  float roots[2];
+			  const int numSolutions = solveQuadratic(
+				1.f,
+				(2.f * cosA1),
+				(1.f - (1.f / (refIndRatio * refIndRatio))),
+				roots);
+
+			  // Since there usually are 2 solutions for the roots, the correct
+			  // one needs to be determined.
+			  // This solution is the one which causes the light ray to bend
+			  // the smallest angle when comparing its direction with the one
+			  // of the incident ray.
+			  // It can be found by finding the refracted ray with the largest
+			  // positive dot product.
+
+			  // Setup the max alignment value for the dot product 
+			  float maxAlignment = -0.1;
+
+			  // Setup a vector to hold the direction of the refracted ray
+			  Vec refractionDir = { 0.f, 0.f, 0.f };
+
+			  // For each solution
+			  for (int i = 0; i < numSolutions; ++i) {
+				// Calculate the refraction for this solution
+				Vec normalTimesSolution;
+				vsmul(normalTimesSolution, roots[i], intersection->normal);
+				Vec currentSolRef; vadd(currentSolRef, incidentRay.dir, normalTimesSolution);
+
+				float alignment = vdot(incidentRay.dir, currentSolRef);
+
+				// If the alignment for this solution is larger than the
+				// largest calculated before
+				if (alignment > maxAlignment) {
+				  // Set this to be the largest
+				  maxAlignment = alignment;
+				  vassign(refractionDir, currentSolRef);
+				}
+			  }
+
+			  // TODO Do check for maxAlignment <= 0.f here
+
+			  // Determine the cosine of the angle of the refracted ray 
+			  float cosA2 = sqrt(1.f - (sinA2 * sinA2));
+			  // If the cosine is less than zero
+			  if (cosA1 < 0.f) {
+				// Set its polarity to match the one of cosA1
+				cosA2 = -cosA2;
+			  }
+
+			  // Compute the fraction of the light which is reflected
+			  // using the Fresnel's equations, assuming uniform
+			  // polarisation of light.
+			  const float Rs = polarisedReflection(
+				refractiveMaterial->refractiveIndex,
+				intersection->object.material.refractiveIndex,
+				cosA1,
+				cosA2);
+			  const float Rp = polarisedReflection(
+				refractiveMaterial->refractiveIndex,
+				intersection->object.material.refractiveIndex,
+				cosA2,
+				cosA1);
+
+			  // Compute total reflection
+			  outReflectionFactor = ((Rs + Rp) *0.5);
+
+			  // The fraction of light which is not reflected contributes
+			  // to refraction and therefore the incoming light ray's intensity
+			  // is diminished by this factor
+
+
+			  // Construct the refracted ray
+			  struct Ray refractedRay;
+			  vsmul(refractedRay.intensity, (1.f - outReflectionFactor), incidentRay.intensity);
+			  vassign(refractedRay.origin, intersection->point);
+			  vassign(refractedRay.dir, refractionDir);
+			  // Shift the ray by a little amount from the surface it collided with
+			  /*Vec smallShift; vsmul(smallShift, kSmallShift, refractedRay.dir);
+			  vadd(refractedRay.origin, refractedRay.origin, smallShift);*/
+
+			  refrCalcResult = rayTrace(
+				spheres,
+				sphNum,
+				lights,
+				lgtNum,
+				refractedRay,
+				&targetMaterial,
+				traceDepth + 1);
+
+			vadd(colourSum, refrCalcResult, colourSum);
+        }
+        
+        // Two sources of shiny reflection must be considered:
+        // a. Reflection caused by refraction
+        // b. Glossy part
+
+        // a.
+        // The refractive part causes reflection of all colours equally.
+        // The components of the colour are diminished based on the 
+        // transparency available as calculated by calculateRefraction.
+        /*Vec reflectionCol = { 1.f, 1.f, 1.f };
+        float prod = transparency * refractiveReflectionFactor;
+        vsmul(reflectionCol, prod, reflectionCol);
+        
+
+        // Add the glossy part of the reflection. This contribution
+        // is diminished by the part of the light which wasn't available
+        // for refraction (and therefore, reflection)
+        Vec glossColContrib;
+        vsmul(glossColContrib, opacity, 
+          intersection.object.material.glossColour);
+        vadd(reflectionCol, reflectionCol, glossColContrib);
+
+        // Multiply by the intensity of the ray
+        vmul(reflectionCol, ray.intensity, reflectionCol);
+
+        
+
+        // If the contribution is significant
+        if (isSignificant(&reflectionCol)) {
+          // Compute a ray to pass in thefunction
+          struct Ray reflectionRay;
+          vassign(reflectionRay.dir, ray.dir);
+          vassign(reflectionRay.intensity, reflectionCol);
+          vassign(reflectionRay.origin, ray.origin);
+
+          // Calculate the 
+          Vec reflectionResult = calculateReflection(
+            spheres,
+            sphNum,
+            lights,
+            lgtNum,
+            &intersection,
+            reflectionRay,
+            traceDepth,
+            refractiveMaterial);
+
+          vadd(colourSum, reflectionResult, colourSum);
+        }*/
+      }
+    }
+  }
+  else {
+    // Return background colour
+    vmul(colourSum, ray.intensity, refractiveMaterial->matteColour)
+  }
+
+  return colourSum;
+}
+
+
 
 __kernel void raytrace( 
 	__global struct Sphere *spheres, 
@@ -704,8 +1001,8 @@ __kernel void raytrace(
 			vsmul(currentSampleCol, kSamplesTotinv, currentSampleCol);
 
 			// Compute the average
-			vadd(pixelCol, pixelCol, currentSampleCol);
-		}*/
+			vadd(pixelCol, pixelCol, currentSampleCol);*/
+		}
 	}
 	
 	// Write result in destination buffer

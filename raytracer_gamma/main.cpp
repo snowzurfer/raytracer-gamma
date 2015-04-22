@@ -112,49 +112,59 @@ int main(int argc, char** argv)
 
   // Colours
   Vec whiteCol;
-  vinit(whiteCol, 1.f, 1.f, 1.f);
+  vinit(whiteCol, 8.f, 8.f, 8.f);
   Vec lowerWhite;
   vinit(lowerWhite, 0.5f, 0.5f, 0.5f);
   Vec redCol;
-  vinit(redCol, 0.8f, 0.f, 0.f);
+  vinit(redCol, 0.8f, 1.f, 0.7f);
   Vec greenCol;
-  vinit(greenCol, 0.0f, 0.7f, 0.f);
+  vinit(greenCol, 0.4f, 0.5f, 0.7f);
   Vec col1;
-  vinit(col1, 1.0f, 1.7f, 0.3f);
+  vinit(col1, 0.01f, 0.8f, 0.01f);
 
   // Setup materials
   struct Material ballMaterial1; // White
-  Vec bm1Gloss; vassign(bm1Gloss, whiteCol);
-  Vec bm1Matte; vassign(bm1Matte, whiteCol);
-  setMatOpacity(&ballMaterial1, 1.f);
-  setMatteGlossBalance(&ballMaterial1, 0.95f, &bm1Matte, &bm1Gloss);
+  Vec bm1Gloss; vassign(bm1Gloss, redCol);
+  Vec bm1Matte; vassign(bm1Matte, greenCol);
+  setMatOpacity(&ballMaterial1, 0.95f);
+  setMatteGlossBalance(&ballMaterial1, 0.3f, &bm1Matte, &bm1Gloss);
   setMatRefractivityIndex(&ballMaterial1, 1.5500f);
 
   struct Material ballMaterial2; // Red
-  Vec bm2Gloss; vassign(bm2Gloss, whiteCol);
-  Vec bm2Matte; vassign(bm2Matte, redCol);
-  setMatOpacity(&ballMaterial2, 0.5f);
-  setMatteGlossBalance(&ballMaterial2, 0.95f, &bm2Matte, &bm2Gloss);
+  Vec bm2Gloss; vassign(bm2Gloss, redCol);
+  Vec bm2Matte; vassign(bm2Matte, greenCol);
+  setMatOpacity(&ballMaterial2, 0.17f);
+  setMatteGlossBalance(&ballMaterial2, 0.5f, &bm2Matte, &bm2Gloss);
   setMatRefractivityIndex(&ballMaterial2, 1.5500f);
 
+  struct Material ballMaterial3; // Red
+  Vec bm3Gloss; vassign(bm3Gloss, col1);
+  Vec bm3Matte; vassign(bm3Matte, col1);
+  setMatOpacity(&ballMaterial3, 0.7f);
+  setMatteGlossBalance(&ballMaterial3, 0.7f, &bm3Matte, &bm3Gloss);
+  setMatRefractivityIndex(&ballMaterial3, 1.5500f);
+
   // Setup spheres
-  unsigned int sphNum = 2;
+  unsigned int sphNum = 3;
   struct Sphere *hSpheres =
     (struct Sphere *)calloc(sphNum, sizeof(struct Sphere));
   hSpheres[0].material = ballMaterial1;
-  vinit(hSpheres[0].pos, -5.f, 0.f, -16.f);
+  vinit(hSpheres[0].pos, -9.f, 0.f, -13.f);
   hSpheres[0].radius = 5.f;
   hSpheres[1].material = ballMaterial2;
-  vinit(hSpheres[1].pos, -8.f, 3.f, -8.f);
-  hSpheres[1].radius = 3.f;
+  vinit(hSpheres[1].pos, 9.f, 3.f, -13.f);
+  hSpheres[1].radius = 5.f;
+  hSpheres[2].material = ballMaterial3;
+  vinit(hSpheres[2].pos, 1.f, -1.f, -7.f);
+  hSpheres[2].radius = 3.f;
 
   // Setup light sources
   unsigned int lgtNum = 2;
   struct Light *hLights =
     (struct Light *)calloc(lgtNum, sizeof(struct Light));
   vinit(hLights[0].pos, -45.f, 10.f, 85.f);
-  vassign(hLights[0].col, col1);
-  vinit(hLights[1].pos, -5.f, 90.f, -5.f);
+  vassign(hLights[0].col, lowerWhite);
+  vinit(hLights[1].pos, 20.f, 60.f, -5.f);
   vassign(hLights[1].col, lowerWhite);
 
 
@@ -223,42 +233,42 @@ int main(int argc, char** argv)
 
 
   // Load the kernel code
-  std::ifstream sourceFstream("raytrace_kernel.cl");
-  std::string source((std::istreambuf_iterator<char>(sourceFstream)),
-    std::istreambuf_iterator<char>());
+  //std::ifstream sourceFstream("raytrace_kernel.cl");
+  //std::string source((std::istreambuf_iterator<char>(sourceFstream)),
+  //  std::istreambuf_iterator<char>());
 
-  /*// Create a program from the source
-  const char* str = source.c_str();
-  cl_program program;
-  program = clCreateProgramWithSource(gpuContext, 1, &str, NULL, &err);
-  checkError(err, "Creating program");
-
-
-
-
-  // Compile the program
-  err = clBuildProgram(program, 0, NULL, "-I C:\Drive\Alberto\Projects\Code\C++\raytracer_gamma\raytracer_gamma ", NULL, NULL);
-  // If there were compilation errors
-  if (err != CL_SUCCESS) {
-  // Print out compilation log
-  size_t len;
-  char buffer[2048];
-
-  printf("Error: Failed to build program executable!\n%s\n", err_code(err));
-  clGetProgramBuildInfo(program, deviceId, CL_PROGRAM_BUILD_LOG, sizeof(buffer), buffer, &len);
-  printf("%s\n", buffer);
-
-  // Exit
-  return EXIT_FAILURE;
-  }
+  //// Create a program from the source
+  //const char* str = source.c_str();
+  //cl_program program;
+  //program = clCreateProgramWithSource(gpuContext, 1, &str, NULL, &err);
+  //checkError(err, "Creating program");
 
 
 
 
-  // Create the kernel
-  cl_kernel koRTG;
-  koRTG = clCreateKernel(program, "raytrace", &err);
-  checkError(err, "Creating kernel");*/
+  //// Compile the program
+  //err = clBuildProgram(program, 0, NULL, "-I C:\Drive\Alberto\Projects\Code\C++\raytracer_gamma\raytracer_gamma ", NULL, NULL);
+  //  // If there were compilation errors
+  //  if (err != CL_SUCCESS) {
+  //    // Print out compilation log
+  //    size_t len;
+  //    char buffer[2048];
+
+  //    printf("Error: Failed to build program executable!\n%s\n", err_code(err));
+  //    clGetProgramBuildInfo(program, deviceId, CL_PROGRAM_BUILD_LOG, sizeof(buffer), buffer, &len);
+  //    printf("%s\n", buffer);
+
+  //    // Exit
+  //    return EXIT_FAILURE;
+  //  }
+
+
+
+
+  //// Create the kernel
+  //cl_kernel koRTG;
+  //koRTG = clCreateKernel(program, "raytrace", &err);
+  //checkError(err, "Creating kernel");
 
 
 
@@ -286,28 +296,28 @@ int main(int argc, char** argv)
 
 
   // Set kernel arguments
-  /*err = clSetKernelArg(koRTG, 0, sizeof(cl_mem), &dSpheres);
-  err |= clSetKernelArg(koRTG, 1, sizeof(unsigned int), &sphNum);
-  err |= clSetKernelArg(koRTG, 2, sizeof(cl_mem), &dLights);
-  err |= clSetKernelArg(koRTG, 3, sizeof(unsigned int), &lgtNum);
-  err |= clSetKernelArg(koRTG, 4, sizeof(unsigned int), &kScreenWidth);
-  err |= clSetKernelArg(koRTG, 5, sizeof(unsigned int), &kScreenHeight);
-  err |= clSetKernelArg(koRTG, 6, sizeof(float), &zoomFactor);
-  err |= clSetKernelArg(koRTG, 7, sizeof(float), &aliasFactor);
-  err |= clSetKernelArg(koRTG, 8, sizeof(cl_mem), &dPixelBuffer);
-  checkError(err, "Setting kernel arguments");
+  //err = clSetKernelArg(koRTG, 0, sizeof(cl_mem), &dSpheres);
+  //err |= clSetKernelArg(koRTG, 1, sizeof(unsigned int), &sphNum);
+  //err |= clSetKernelArg(koRTG, 2, sizeof(cl_mem), &dLights);
+  //err |= clSetKernelArg(koRTG, 3, sizeof(unsigned int), &lgtNum);
+  //err |= clSetKernelArg(koRTG, 4, sizeof(unsigned int), &kScreenWidth);
+  //err |= clSetKernelArg(koRTG, 5, sizeof(unsigned int), &kScreenHeight);
+  //err |= clSetKernelArg(koRTG, 6, sizeof(float), &zoomFactor);
+  //err |= clSetKernelArg(koRTG, 7, sizeof(float), &aliasFactor);
+  //err |= clSetKernelArg(koRTG, 8, sizeof(cl_mem), &dPixelBuffer);
+  //checkError(err, "Setting kernel arguments");
 
   /*double rtime = wtime();*/
 
   // Execute the kernel over the entire range of our 1d input data set
   // letting the OpenCL runtime choose the work-group size
-  /*err = clEnqueueNDRangeKernel(commandsGPU, koRTG, 1, NULL,
-  &globalWorkSize, NULL, 0, NULL, NULL);
-  checkError(err, "Enqueueing kernel");
+  /* err = clEnqueueNDRangeKernel(commandsGPU, koRTG, 1, NULL,
+   &globalWorkSize, NULL, 0, NULL, NULL);
+   checkError(err, "Enqueueing kernel");*/
 
   // Wait for the commands in the queue to be executed
   err = clFinish(commandsGPU);
-  checkError(err, "Waiting for commands to finish");*/
+  checkError(err, "Waiting for commands to finish");
 
   printf("Size of vec3: %d", sizeof(Vec));
 
@@ -325,6 +335,7 @@ int main(int argc, char** argv)
   // Amount to increase each step for the ray direction
   const float kRayXStep = kImageWorldWidth / ((float)kScreenWidth);
   const float kRayYStep = kImageWorldHeight / ((float)kScreenHeight);
+  const float aspectRatio = kImageWorldWidth / kImageWorldHeight;
 
   // Variables holding the current step in world coordinates
   float rayX = 0.f, rayY = 0.f;
@@ -345,7 +356,8 @@ int main(int argc, char** argv)
     
 
     // Calculate world position of pixel being currently worked on
-    const float kPxWorldX = (((float)(gid % kScreenWidth) - (kScreenWidth * 0.5f))) * kRayXStep;
+    const float kPxWorldX = ((((float)(gid % kScreenWidth) - 
+      (kScreenWidth * 0.5f))) * kRayXStep);
     const float kPxWorldY = ((kScreenHeight *0.5f) - ((float)(gid / kScreenWidth))) * kRayYStep;
 
     // The ray to be shot. The vantage point (camera) is at the origin,
@@ -365,8 +377,8 @@ int main(int argc, char** argv)
     for (int i = 0; i < aliasFactor; ++i) {
       for (int j = 0; j < aliasFactor; ++j) {
         // Calculate the direction of the ray
-        float x = kPxWorldX + (float)(((float)j) * kAliasFactorStepInv);
-        float y = kPxWorldY + (float)(((float)i) * kAliasFactorStepInv);
+        float x = (kPxWorldX + (float)(((float)j) * kAliasFactorStepInv)) * aspectRatio;
+        float y = (kPxWorldY + (float)(((float)i) * kAliasFactorStepInv));
 
         // Set the ray's dir and normalise it
         vinit(ray.dir, x, y, zoomFactor); vnorm(ray.dir);
@@ -474,22 +486,22 @@ int main(int argc, char** argv)
   }
   }*/
 
-  printf("correct resz: %d \n", correctResNum);
+  //printf("correct resz: %d \n", correctResNum);
 
-  RGB temp;
-  for (int i = 0; i < globalWorkSize; i++) {
-    temp = pixels[i];     // assign element i of a+b to tmp
-    // compute deviation of expected and output result
-    if (temp.b > 0.f || temp.r > 0.f || temp.g > 0.f) {  // correct if square deviation is less than tolerance squared
-      correctResNum++;
-      printf(" temp.r %f temp.g %f temp.b %f \n", temp.r,
-        temp.g, temp.b);
-    }
-    else {
-      //printf(" temp.r %f temp.g %f temp.b %f \n", temp.r,
-      //temp.g, temp.b);
-    }
-  }
+  //RGB temp;
+  //for (int i = 0; i < globalWorkSize; i++) {
+  //  temp = pixels[i];     // assign element i of a+b to tmp
+  //  // compute deviation of expected and output result
+  //  if (temp.b > 0.f || temp.r > 0.f || temp.g > 0.f) {  // correct if square deviation is less than tolerance squared
+  //    correctResNum++;
+  //    printf(" temp.r %f temp.g %f temp.b %f \n", temp.r,
+  //      temp.g, temp.b);
+  //  }
+  //  else {
+  //    //printf(" temp.r %f temp.g %f temp.b %f \n", temp.r,
+  //    //temp.g, temp.b);
+  //  }
+  //}
 
   free(imagePtr);
 

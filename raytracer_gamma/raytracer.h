@@ -54,7 +54,7 @@ struct Intersection {
 
 // Determine the matte reflection contribution to the illumination
 // of an intersection point
-Vec calculateRefraction(
+struct Ray calculateRefraction(
 #ifdef GPU_KERNEL
   OCL_GLOBAL_BUFFER
 #endif
@@ -67,7 +67,8 @@ struct Intersection *intersection,
 struct Ray incidentRay,
   int traceDepth,
   const struct Material *refractiveMaterial,
-  float &outReflectionFactor);
+  struct Material *targetMaterial,
+  float *outReflectionFactor);
 
 // Determine the matte reflection contribution to the illumination
 // of an intersection point
@@ -218,6 +219,9 @@ struct Intersection *intersection)
 
         found = true;
         intersection->object = *(spheres + i);
+
+        // Set the newly smallest
+        minT = t;
       }
     }
   }
@@ -452,7 +456,7 @@ struct Light *lights, const unsigned int lgtNum,
 struct Ray ray, struct Material *refractiveMaterial,
   int traceDepth)
 {
-  const int kMaxTraceDepth = 3;
+  const int kMaxTraceDepth = 20;
 
   // Colour to be computed and returned
   Vec colourSum; vinit(colourSum, 0.f, 0.f, 0.f);
@@ -502,8 +506,10 @@ struct Ray ray, struct Material *refractiveMaterial,
           vsmul(refractionRay.intensity, transparency, ray.intensity);
           vassign(refractionRay.origin, ray.origin);
 
+          struct Material targetMaterial;
+
           // Calculate the refraction
-          Vec refrCalcResult = calculateRefraction(
+          struct Ray refractedRay = calculateRefraction(
             spheres,
             sphNum,
             lights,
@@ -512,7 +518,17 @@ struct Ray ray, struct Material *refractiveMaterial,
             refractionRay,
             traceDepth,
             refractiveMaterial,
-            refractiveReflectionFactor);
+            &targetMaterial,
+            &refractiveReflectionFactor);
+
+          Vec refrCalcResult = rayTrace(
+            spheres,
+            sphNum,
+            lights,
+            lgtNum,
+            refractedRay,
+            &targetMaterial,
+            traceDepth + 1);
 
           vadd(colourSum, refrCalcResult, colourSum);
         }
@@ -579,7 +595,7 @@ struct Ray ray, struct Material *refractiveMaterial,
 
 // Determine the matte reflection contribution to the illumination
 // of an intersection point
-Vec calculateRefraction(
+struct Ray calculateRefraction(
 #ifdef GPU_KERNEL
   OCL_GLOBAL_BUFFER
 #endif
@@ -592,7 +608,8 @@ struct Intersection *intersection,
 struct Ray incidentRay,
   int traceDepth,
   const struct Material *refractiveMaterial,
-  float &outReflectionFactor)
+  struct Material *targetMaterial,
+  float *outReflectionFactor)
 {
   // Store the cos of the angle between the incident ray and the surface normal
   float cosA1 = vdot(incidentRay.dir, intersection->normal);
@@ -625,7 +642,6 @@ struct Ray incidentRay,
 
   // Find the refractive index of the material after the collision point
   const float kSmallShift = 0.01f;
-  struct Material targetMaterial;
   {
     Vec testPt; vsmul(testPt, kSmallShift, incidentRay.dir);
     vadd(testPt, testPt, intersection->point);
@@ -639,11 +655,11 @@ struct Ray incidentRay,
     // If the point was within a sphere
     if (containerNum != -1) {
       // Read the material of that sphere
-      targetMaterial = spheres[containerNum].material;
+      *targetMaterial = spheres[containerNum].material;
     }
     else {
       // Use the ambient's material
-      targetMaterial = bgMaterial;
+      *targetMaterial = bgMaterial;
     }
   }
 
@@ -651,7 +667,7 @@ struct Ray incidentRay,
   // refractive indices. This is necessary for snell's law
   const float refIndRatio =
     refractiveMaterial->refractiveIndex /
-    targetMaterial.refractiveIndex;
+    targetMaterial->refractiveIndex;
 
   // Compute the sine of the refracted angle using Snell's law:
   // the sine of the refracted angle with respect to the normal
@@ -663,10 +679,10 @@ struct Ray incidentRay,
     // the refracted ray doesn't exist.
 
     // Inform the caller that the ray experiences total reflection
-    outReflectionFactor = 1.f;
+    *outReflectionFactor = 1.f;
     // Return a zero contribution
     Vec contrib; vinit(contrib, 0.f, 0.f, 0.f);
-    return contrib;
+    
   }
 
   // Since there is some refracted light, determine its direction.
@@ -725,17 +741,17 @@ struct Ray incidentRay,
   // polarisation of light.
   const float Rs = polarisedReflection(
     refractiveMaterial->refractiveIndex,
-    intersection->object.material.refractiveIndex,
+    targetMaterial->refractiveIndex,
     cosA1,
     cosA2);
   const float Rp = polarisedReflection(
     refractiveMaterial->refractiveIndex,
-    intersection->object.material.refractiveIndex,
+    targetMaterial->refractiveIndex,
     cosA2,
     cosA1);
 
   // Compute total reflection
-  outReflectionFactor = ((Rs + Rp) *0.5);
+  *outReflectionFactor = ((Rs + Rp) *0.5);
 
   // The fraction of light which is not reflected contributes
   // to refraction and therefore the incoming light ray's intensity
@@ -744,21 +760,14 @@ struct Ray incidentRay,
 
   // Construct the refracted ray
   struct Ray refractedRay;
-  vsmul(refractedRay.intensity, (1.f - outReflectionFactor), incidentRay.intensity);
+  vsmul(refractedRay.intensity, (1.f - *outReflectionFactor), incidentRay.intensity);
   vassign(refractedRay.origin, intersection->point);
   vassign(refractedRay.dir, refractionDir);
   // Shift the ray by a little amount from the surface it collided with
   /*Vec smallShift; vsmul(smallShift, kSmallShift, refractedRay.dir);
   vadd(refractedRay.origin, refractedRay.origin, smallShift);*/
 
-  return rayTrace(
-    spheres,
-    sphNum,
-    lights,
-    lgtNum,
-    refractedRay,
-    &targetMaterial,
-    traceDepth + 1);
+  return refractedRay;
 }
 
 Vec calculateReflection(
