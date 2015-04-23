@@ -4,6 +4,7 @@
 // Includes
 #include "vec.h"
 #include "ray.h"
+#include "material.h"
 
 // RtSnapshot
 typedef struct
@@ -12,6 +13,9 @@ typedef struct
   int traceDepth;
   int stage;
   Vec colour;
+  struct Intersection intersection;
+  struct Material refractiveMat;
+  float refractiveReflectionFactor;
 } RtSnapshot;
 
 // RtStack
