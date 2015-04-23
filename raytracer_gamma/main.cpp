@@ -233,42 +233,42 @@ int main(int argc, char** argv)
 
 
   // Load the kernel code
-  //std::ifstream sourceFstream("raytrace_kernel.cl");
-  //std::string source((std::istreambuf_iterator<char>(sourceFstream)),
-  //  std::istreambuf_iterator<char>());
+  std::ifstream sourceFstream("raytrace_kernel.cl");
+  std::string source((std::istreambuf_iterator<char>(sourceFstream)),
+    std::istreambuf_iterator<char>());
 
-  //// Create a program from the source
-  //const char* str = source.c_str();
-  //cl_program program;
-  //program = clCreateProgramWithSource(gpuContext, 1, &str, NULL, &err);
-  //checkError(err, "Creating program");
-
-
-
-
-  //// Compile the program
-  //err = clBuildProgram(program, 0, NULL, "-I C:\Drive\Alberto\Projects\Code\C++\raytracer_gamma\raytracer_gamma ", NULL, NULL);
-  //  // If there were compilation errors
-  //  if (err != CL_SUCCESS) {
-  //    // Print out compilation log
-  //    size_t len;
-  //    char buffer[2048];
-
-  //    printf("Error: Failed to build program executable!\n%s\n", err_code(err));
-  //    clGetProgramBuildInfo(program, deviceId, CL_PROGRAM_BUILD_LOG, sizeof(buffer), buffer, &len);
-  //    printf("%s\n", buffer);
-
-  //    // Exit
-  //    return EXIT_FAILURE;
-  //  }
+  // Create a program from the source
+  const char* str = source.c_str();
+  cl_program program;
+  program = clCreateProgramWithSource(gpuContext, 1, &str, NULL, &err);
+  checkError(err, "Creating program");
 
 
 
 
-  //// Create the kernel
-  //cl_kernel koRTG;
-  //koRTG = clCreateKernel(program, "raytrace", &err);
-  //checkError(err, "Creating kernel");
+  // Compile the program
+  err = clBuildProgram(program, 0, NULL, "-I C:\Drive\Alberto\Projects\Code\C++\raytracer_gamma\raytracer_gamma", NULL, NULL);
+    // If there were compilation errors
+    if (err != CL_SUCCESS) {
+      // Print out compilation log
+      size_t len;
+      char buffer[2048];
+
+      printf("Error: Failed to build program executable!\n%s\n", err_code(err));
+      clGetProgramBuildInfo(program, deviceId, CL_PROGRAM_BUILD_LOG, sizeof(buffer), buffer, &len);
+      printf("%s\n", buffer);
+
+      // Exit
+      return EXIT_FAILURE;
+    }
+
+
+
+
+  // Create the kernel
+  cl_kernel koRTG;
+  koRTG = clCreateKernel(program, "raytrace", &err);
+  checkError(err, "Creating kernel");
 
 
 
@@ -296,24 +296,24 @@ int main(int argc, char** argv)
 
 
   // Set kernel arguments
-  //err = clSetKernelArg(koRTG, 0, sizeof(cl_mem), &dSpheres);
-  //err |= clSetKernelArg(koRTG, 1, sizeof(unsigned int), &sphNum);
-  //err |= clSetKernelArg(koRTG, 2, sizeof(cl_mem), &dLights);
-  //err |= clSetKernelArg(koRTG, 3, sizeof(unsigned int), &lgtNum);
-  //err |= clSetKernelArg(koRTG, 4, sizeof(unsigned int), &kScreenWidth);
-  //err |= clSetKernelArg(koRTG, 5, sizeof(unsigned int), &kScreenHeight);
-  //err |= clSetKernelArg(koRTG, 6, sizeof(float), &zoomFactor);
-  //err |= clSetKernelArg(koRTG, 7, sizeof(float), &aliasFactor);
-  //err |= clSetKernelArg(koRTG, 8, sizeof(cl_mem), &dPixelBuffer);
-  //checkError(err, "Setting kernel arguments");
+  err = clSetKernelArg(koRTG, 0, sizeof(cl_mem), &dSpheres);
+  err |= clSetKernelArg(koRTG, 1, sizeof(unsigned int), &sphNum);
+  err |= clSetKernelArg(koRTG, 2, sizeof(cl_mem), &dLights);
+  err |= clSetKernelArg(koRTG, 3, sizeof(unsigned int), &lgtNum);
+  err |= clSetKernelArg(koRTG, 4, sizeof(unsigned int), &kScreenWidth);
+  err |= clSetKernelArg(koRTG, 5, sizeof(unsigned int), &kScreenHeight);
+  err |= clSetKernelArg(koRTG, 6, sizeof(float), &zoomFactor);
+  err |= clSetKernelArg(koRTG, 7, sizeof(float), &aliasFactor);
+  err |= clSetKernelArg(koRTG, 8, sizeof(cl_mem), &dPixelBuffer);
+  checkError(err, "Setting kernel arguments");
 
   /*double rtime = wtime();*/
 
   // Execute the kernel over the entire range of our 1d input data set
   // letting the OpenCL runtime choose the work-group size
-  /* err = clEnqueueNDRangeKernel(commandsGPU, koRTG, 1, NULL,
-   &globalWorkSize, NULL, 0, NULL, NULL);
-   checkError(err, "Enqueueing kernel");*/
+  err = clEnqueueNDRangeKernel(commandsGPU, koRTG, 1, NULL,
+    &globalWorkSize, NULL, 0, NULL, NULL);
+  checkError(err, "Enqueueing kernel");
 
   // Wait for the commands in the queue to be executed
   err = clFinish(commandsGPU);
