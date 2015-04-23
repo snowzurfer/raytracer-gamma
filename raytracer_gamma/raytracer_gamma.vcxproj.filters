@@ -44,5 +44,14 @@
     <ClInclude Include="raytracer.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="raytraceStack.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="material.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="ray.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>
