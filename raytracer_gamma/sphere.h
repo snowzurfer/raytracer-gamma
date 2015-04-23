@@ -1,19 +1,18 @@
+#ifndef _SPHERE_H
+#define _SPHERE_H
+
 // Ray struct header file
 
-#include <vec.h>
-#include <material.h>
-#include <ray.h>
-#include <common.h>
-#include <stdbool.h>
+#include "vec.h"
+#include "material.h"
 
 struct Sphere
 {
-  Vec origin;
-  cl_float radius;
+  Vec pos;
+  float radius;
   struct Material material;
 };
 // EO Struct
 
 
-
-bool raySphere(struct Sphere * sphere, struct Ray *ray, cl_float *t);
+#endif

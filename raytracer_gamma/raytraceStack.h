@@ -5,6 +5,7 @@
 #include "vec.h"
 #include "ray.h"
 #include "material.h"
+#include "intersection.h"
 
 // RtSnapshot
 typedef struct

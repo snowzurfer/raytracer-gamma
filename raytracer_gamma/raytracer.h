@@ -2,6 +2,9 @@
 #include "algebra.h"
 #include "ray.h"
 #include "material.h"
+#include "raytraceStack.h"
+#include "sphere.h"
+#include "intersection.h"
 
 // EPSILON is a tolerance value for floating point roundoff error.
 // It is used in many calculations where we want to err
@@ -12,12 +15,7 @@
 
 
 
-struct Sphere
-{
-  Vec pos;
-  float radius;
-  struct Material material;
-};
+
 
 struct Light
 {
@@ -26,18 +24,6 @@ struct Light
   Vec col;
 };
 
-struct Intersection {
-  // Object which intersects with the ray
-  struct Sphere object;
-
-  // Point of intersection
-  Vec point;
-  // Normal at intersection
-  Vec normal;
-
-  // Distance non-sqrted
-  float squaredDist;
-};
 
 // Determine the matte reflection contribution to the illumination
 // of an intersection point
@@ -430,13 +416,186 @@ struct Sphere *spheres, const unsigned int sphNum,
   OCL_GLOBAL_BUFFER
 #endif
 struct Light *lights, const unsigned int lgtNum,
-struct Ray ray, struct Material *refractiveMaterial,
+struct Ray ray, struct Material refractiveMaterial,
   int traceDepth)
 {
-  const int kMaxTraceDepth = 20;
+  const int kMaxTraceDepth = 10;
 
   // Colour to be computed and returned
   Vec colourSum; vinit(colourSum, 0.f, 0.f, 0.f);
+
+  // Create a stack to hold the
+  RtStack snapshotsStack;
+  rtStackInit(&snapshotsStack);
+
+  // Create a new snapshot
+  RtSnapshot currSnapshot;
+  currSnapshot.ray = ray;
+  currSnapshot.traceDepth = traceDepth;
+  currSnapshot.stage = 0;
+  currSnapshot.colour = colourSum;
+
+  // Push it into the stack
+  rtStackPush(&snapshotsStack, &currSnapshot);
+
+  // While the stack is not empty
+  while (!rtStackIsEmpty(&snapshotsStack)) {
+    // Read top / pop an element from the stack
+    currSnapshot = rtStackTop(&snapshotsStack);
+    rtStackPop(&snapshotsStack);
+
+    // Depending on the stage of the recursion
+    // (There is code to be processed both before a recursion call
+    // happens and after it has returned)
+    switch (currSnapshot.stage) {
+    // Before recursion for refraction
+    case 0: {
+        if (calcIntersection(spheres, sphNum, &currSnapshot.ray, 
+          &currSnapshot.intersection)) {
+        // Check for end of recursion condition
+        if (currSnapshot.traceDepth <= kMaxTraceDepth) {
+          // If the ray still has significant intensity
+          if (isSignificant(&currSnapshot.ray.intensity)) {
+            // Calculate the opacity and transparency available
+            // of the light ray.
+            const float opacity = 
+              currSnapshot.intersection.object.material.opacity;
+            const float transparency = 1.f - opacity;
+
+            // If the object is opaque
+            if (opacity > 0.f) {
+              // Calculate matte colour
+              Vec calcTemp; vmul(calcTemp, currSnapshot.ray.intensity,
+                currSnapshot.intersection.object.material.matteColour);
+              vsmul(calcTemp, opacity, calcTemp);
+              Vec matteCalcResult = calculateMatte(spheres, sphNum, lights,
+                lgtNum, &currSnapshot.intersection);
+
+              if (isSignificant(&matteCalcResult)) {
+                int lol = 0;
+              }
+
+              vmul(calcTemp, matteCalcResult, calcTemp);
+
+              vadd(colourSum, calcTemp, colourSum);
+
+            }
+
+            // Variable to hold the fraction of light which is reflected.
+            // It's calculated by the calculateRefraction function if there
+            // is transparency.
+            float refractiveReflectionFactor = 0.f;
+
+
+
+            // If there is transparency
+            if (transparency > 0.f) {
+              // Calculate a ray to pass in the calculate refraction method
+              struct Ray refractionRay;
+              vassign(refractionRay.dir, ray.dir);
+              vsmul(refractionRay.intensity, transparency, ray.intensity);
+              vassign(refractionRay.origin, ray.origin);
+
+              struct Material targetMaterial;
+
+              // Calculate the refraction
+              struct Ray refractedRay = calculateRefraction(
+                spheres,
+                sphNum,
+                lights,
+                lgtNum,
+                &currSnapshot.intersection,
+                refractionRay,
+                currSnapshot.traceDepth,
+                &currSnapshot.refractiveMat,
+                &targetMaterial,
+                &refractiveReflectionFactor);
+
+              // Store the state of the current snapshot
+              currSnapshot.stage = 1;
+              currSnapshot.ray = refractedRay;
+              currSnapshot.refractiveMat = targetMaterial;
+              currSnapshot.refractiveReflectionFactor = 
+                refractiveReflectionFactor;
+              currSnapshot.traceDepth++;
+              currSnapshot.colour = colourSum;
+            }
+          }
+        }
+      }
+      else {
+        // Return background colour
+        vmul(colourSum, currSnapshot.ray.intensity, 
+          currSnapshot.refractiveMat.matteColour);
+      }
+      break;
+    }
+
+    // After refraction recursion
+    case 1: {
+              vadd(currSnapshot.colour, colourSum, currSnapshot.colour);
+
+              // Two sources of shiny reflection must be considered:
+              // a. Reflection caused by refraction
+              // b. Glossy part
+
+              // a.
+              // The refractive part causes reflection of all colours equally.
+              // The components of the colour are diminished based on the 
+              // transparency available as calculated by calculateRefraction.
+              Vec reflectionCol = { 1.f, 1.f, 1.f };
+              float prod = transparency * refractiveReflectionFactor;
+              vsmul(reflectionCol, prod, reflectionCol);
+
+
+              // Add the glossy part of the reflection. This contribution
+              // is diminished by the part of the light which wasn't available
+              // for refraction (and therefore, reflection)
+              Vec glossColContrib;
+              vsmul(glossColContrib, opacity,
+                intersection.object.material.glossColour);
+              vadd(reflectionCol, reflectionCol, glossColContrib);
+
+              // Multiply by the intensity of the ray
+              vmul(reflectionCol, ray.intensity, reflectionCol);
+
+
+
+              // If the contribution is significant
+              if (isSignificant(&reflectionCol)) {
+                // Compute a ray to pass in the function
+                struct Ray reflectionRay;
+                vassign(reflectionRay.dir, ray.dir);
+                vassign(reflectionRay.intensity, reflectionCol);
+                vassign(reflectionRay.origin, ray.origin);
+
+
+                // Calculate the reflected ray
+                struct Ray refractedRay = calculateReflection(
+                  &intersection,
+                  reflectionRay);
+
+                Vec reflCalcResult = rayTrace(
+                  spheres,
+                  sphNum,
+                  lights,
+                  lgtNum,
+                  refractedRay,
+                  refractiveMaterial,
+                  traceDepth + 1);
+
+                vadd(colourSum, reflCalcResult, colourSum);
+              }
+      break;
+    }
+    case 2: {
+      
+
+      vassign(colourSum, currSnapshot.colour);
+      break;
+    }
+    }
+  }
 
   // Intersection to be returned from the function
   struct Intersection intersection;
