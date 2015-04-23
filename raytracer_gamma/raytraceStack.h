@@ -11,6 +11,7 @@ typedef struct
   struct Ray ray;
   int traceDepth;
   int stage;
+  Vec colour;
 } RtSnapshot;
 
 // RtStack
