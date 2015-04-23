@@ -1,5 +1,7 @@
 #include "vec.h"
 #include "algebra.h"
+#include "ray.h"
+#include "material.h"
 
 // EPSILON is a tolerance value for floating point roundoff error.
 // It is used in many calculations where we want to err
@@ -8,22 +10,7 @@
 // or whether a point is at least a minimum distance
 // away from another point.
 
-// Structs definition
-struct Ray
-{
-  Vec origin;
-  Vec dir;
-  Vec intensity;
-};
-// EO Struct
 
-struct Material
-{
-  Vec matteColour;
-  Vec glossColour;
-  float opacity;
-  float refractiveIndex;
-};
 
 struct Sphere
 {

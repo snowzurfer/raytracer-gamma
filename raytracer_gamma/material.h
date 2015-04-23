@@ -1,11 +1,16 @@
+#ifndef _MATERIAL_H
+#define _MATERIAL_H
+
 
 // Includes
-#include <CL/cl.h>
+#include "vec.h"
 
 struct Material
 {
-  cl_float4 colour;
-  float reflectivity;
-  float refractivity;
+  Vec matteColour;
+  Vec glossColour;
+  float opacity;
+  float refractiveIndex;
 };
-// EO Struct
+
+#endif // !_MATERIAL_H
