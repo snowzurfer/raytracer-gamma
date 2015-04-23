@@ -19,7 +19,7 @@
 #define LENGTH (1024)    // length of vectors a, b, and c
 
 //extern double wtime();       // returns time since some fixed past point (wtime.c)
-extern int output_device_info(cl_device_id);
+//extern int output_device_info(cl_device_id);
 
 
 // Structure representing a pixel
@@ -106,7 +106,7 @@ int main(int argc, char** argv)
   const unsigned int kScreenWidth = 800;
   const unsigned int kScreenHeight = 600;
   float zoomFactor = -4.f;
-  float aliasFactor = 3.f;
+  float aliasFactor = 1.f;
 
   size_t globalWorkSize = kScreenWidth * kScreenHeight;
 
@@ -126,22 +126,22 @@ int main(int argc, char** argv)
   struct Material ballMaterial1; // White
   Vec bm1Gloss; vassign(bm1Gloss, redCol);
   Vec bm1Matte; vassign(bm1Matte, greenCol);
-  setMatOpacity(&ballMaterial1, 0.95f);
-  setMatteGlossBalance(&ballMaterial1, 0.3f, &bm1Matte, &bm1Gloss);
+  setMatOpacity(&ballMaterial1, 0.2f);
+  setMatteGlossBalance(&ballMaterial1, 0.2f, &bm1Matte, &bm1Gloss);
   setMatRefractivityIndex(&ballMaterial1, 1.5500f);
 
   struct Material ballMaterial2; // Red
   Vec bm2Gloss; vassign(bm2Gloss, redCol);
   Vec bm2Matte; vassign(bm2Matte, greenCol);
-  setMatOpacity(&ballMaterial2, 0.17f);
-  setMatteGlossBalance(&ballMaterial2, 0.5f, &bm2Matte, &bm2Gloss);
+  setMatOpacity(&ballMaterial2, 0.6f);
+  setMatteGlossBalance(&ballMaterial2, 0.8f, &bm2Matte, &bm2Gloss);
   setMatRefractivityIndex(&ballMaterial2, 1.5500f);
 
   struct Material ballMaterial3; // Red
   Vec bm3Gloss; vassign(bm3Gloss, col1);
   Vec bm3Matte; vassign(bm3Matte, col1);
-  setMatOpacity(&ballMaterial3, 0.7f);
-  setMatteGlossBalance(&ballMaterial3, 0.7f, &bm3Matte, &bm3Gloss);
+  setMatOpacity(&ballMaterial3, 0.8f);
+  setMatteGlossBalance(&ballMaterial3, 0.6f, &bm3Matte, &bm3Gloss);
   setMatRefractivityIndex(&ballMaterial3, 1.5500f);
 
   // Setup spheres
@@ -211,8 +211,8 @@ int main(int argc, char** argv)
   }
 
   // Once a device has been obtained, print out its info
-  //err = output_device_info(deviceId);
-  //checkError(err, "Printing device output");
+//  err = output_device_info(deviceId);
+  checkError(err, "Printing device output");
 
 
 
@@ -281,7 +281,7 @@ int main(int argc, char** argv)
     sizeof(struct Light) * lgtNum, NULL, &err);
   checkError(err, "Creating buffer for lights");
   cl_mem dPixelBuffer = clCreateBuffer(gpuContext, CL_MEM_WRITE_ONLY,
-    kScreenWidth * kScreenHeight * sizeof(cl_float4), NULL, &err);
+    kScreenWidth * kScreenHeight * sizeof(Vec), NULL, &err);
   checkError(err, "Creating buffer for pixels");
 
   // Write data from host into device memory (fill the buffers with
@@ -385,7 +385,7 @@ int main(int argc, char** argv)
 
         // Raytrace for the current sample
         Vec currentSampleCol = rayTrace(hSpheres, sphNum, hLights, lgtNum,
-          ray, &bgMaterial, 0);
+          ray, bgMaterial, 0);
 
         vsmul(currentSampleCol, kSamplesTotinv, currentSampleCol);
 
@@ -419,30 +419,22 @@ int main(int argc, char** argv)
   // Create a buffer of pixels
   cl_float4 *dst;
 
-  /*err = clEnqueueReadBuffer(commandsGPU, dC, CL_FALSE, 0,
+  err = clEnqueueReadBuffer(commandsGPU, dC, CL_FALSE, 0,
   sizeof(float)* count, hC, 0, NULL, NULL);
   // If the reading operation didn't complete successfully
   if (err != CL_SUCCESS) {
-  printf("Error: Failed to read output array!\n%s\n", err_code(err));
+    printf("Error: Failed to read output array!\n%s\n", err_code(err));
 
-  // Exit
-  exit(1);
-  }*/
-
-  // Test the results
-
-
-
-  // Summarise results
-  /* printf("C = A+B:  %d out of %d results were correct.\n", correctResNum,
-  count);*/
+    // Exit
+    exit(1);
+  }
 
   // Cleanup
   clReleaseMemObject(dPixelBuffer);
   clReleaseMemObject(dLights);
   clReleaseMemObject(dSpheres);
-  /*clReleaseProgram(program);
-  clReleaseKernel(koRTG);*/
+  clReleaseProgram(program);
+  clReleaseKernel(koRTG);
   clReleaseCommandQueue(commandsGPU);
   clReleaseContext(gpuContext);
   // ... Also on host
@@ -457,60 +449,13 @@ int main(int argc, char** argv)
 
   // Try to save a PPM picture
 
-  fprintf(stdout, "Size of RGB: %d \n", sizeof(RGB));
-
   RGB *pixels = (RGB *)calloc(kScreenHeight * kScreenWidth, sizeof(RGB));
 
   memcpy(pixels, imagePtr, (kScreenHeight * kScreenWidth * sizeof(RGB)));
 
 
-  float temp1;
-
-  int correctResNum = 0;
-
-  printf("tot: %d \n", globalWorkSize * sizeof(Vec));
-
-  /*for (int i = 0; i < (globalWorkSize * 12); i += 3) {
-  temp1 = imagePtr[i];
-  float temp2 = imagePtr[1 + i];
-  float temp3 = imagePtr[i + 2];
-
-  // assign element i of a+b to tmp
-  // compute deviation of expected and output result
-  if (temp1 > 0.f || temp2 > 0.f || temp3 > 0.f) {  // correct if square deviation is less than tolerance squared
-  correctResNum++;
-  }
-  else if (temp1 != 0.f && temp2 != 0.f && temp3 != 0.f) {
-  printf(" temp1 %f temp2 %f temp3 %f \n", temp1,
-  temp2, temp3);
-  }
-  }*/
-
-  //printf("correct resz: %d \n", correctResNum);
-
-  //RGB temp;
-  //for (int i = 0; i < globalWorkSize; i++) {
-  //  temp = pixels[i];     // assign element i of a+b to tmp
-  //  // compute deviation of expected and output result
-  //  if (temp.b > 0.f || temp.r > 0.f || temp.g > 0.f) {  // correct if square deviation is less than tolerance squared
-  //    correctResNum++;
-  //    printf(" temp.r %f temp.g %f temp.b %f \n", temp.r,
-  //      temp.g, temp.b);
-  //  }
-  //  else {
-  //    //printf(" temp.r %f temp.g %f temp.b %f \n", temp.r,
-  //    //temp.g, temp.b);
-  //  }
-  //}
-
   free(imagePtr);
 
-  //int imageCounter
-  //for (int i = 0; i < (kScreenHeight * kScreenWidth); i++) {
-  //  pixels[i].r = imagePtr[i]; /* red */
-  //  pixels[i].g = imagePtr[i + 1];  /* green */
-  //  pixels[i].b = (float)((i % 256) / 256.f);  /* blue */
-  //}
 
   savePPM(pixels, "testPPM.ppm", kScreenWidth, kScreenHeight, maxColourValue);
   free(pixels);

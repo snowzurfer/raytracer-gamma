@@ -12,6 +12,6 @@ struct Ray
   Vec dir;
   Vec intensity;
 };
-// EO Struct
+/* EO Struct */
 
 #endif _RAY_H

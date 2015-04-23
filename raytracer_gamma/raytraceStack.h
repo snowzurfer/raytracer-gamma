@@ -7,6 +7,8 @@
 #include "material.h"
 #include "intersection.h"
 
+#define RTSTACK_MAXSIZE 10
+
 // RtSnapshot
 typedef struct
 {
@@ -23,19 +25,20 @@ typedef struct
 typedef struct 
 {
   // Elements contained by the stack
-  RtSnapshot elements[10];
+  RtSnapshot elements[RTSTACK_MAXSIZE];
   
   // Top element in the stack
   int top;
 
   // Size of the stack
-  const int maxSize = 10;
+  int maxSize;
 } RtStack;
 
 // Initialise the stack
 void rtStackInit(RtStack *sP) {
   // Empty
   sP->top = -1;
+  sP->maxSize = RTSTACK_MAXSIZE;
 }
 
 bool rtStackIsEmpty(RtStack *sP) {
@@ -60,8 +63,8 @@ void rtStackPop(RtStack *sP) {
 }
 
 // Return a reference to the top value of the stack
-RtSnapshot &rtStackTop(RtStack *sP) {
-  return sP->elements[sP->top];
+RtSnapshot *rtStackTop(RtStack *sP) {
+  return &sP->elements[sP->top];
 }
 
 #endif

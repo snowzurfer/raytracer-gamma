@@ -90,11 +90,13 @@
     <ClInclude Include="common.h" />
     <ClInclude Include="device_picker.h" />
     <ClInclude Include="err_code.h" />
+    <ClInclude Include="intersection.h" />
     <ClInclude Include="material.h" />
     <ClInclude Include="ray.h" />
     <ClInclude Include="raytracer.h" />
     <ClInclude Include="raytraceStack.h" />
     <ClInclude Include="scene.h" />
+    <ClInclude Include="sphere.h" />
     <ClInclude Include="vec.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
