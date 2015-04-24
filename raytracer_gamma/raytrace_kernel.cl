@@ -347,14 +347,14 @@ float polarisedReflection(
 
 struct Ray calculateReflection(
 struct Intersection *intersection,
-struct Ray incidentRay)
+struct Ray *incidentRay)
 {
 
   // Calculate the direction of the reflected ray
-  const float perp = 2.f * (vdot(incidentRay.dir, intersection->normal));
+  const float perp = 2.f * (vdot(incidentRay->dir, intersection->normal));
   Vec perpTimesNormal;  vsmul(perpTimesNormal, perp, intersection->normal);
   Vec reflectedDir;
-  vsub(reflectedDir, incidentRay.dir, perpTimesNormal);
+  vsub(reflectedDir, incidentRay->dir, perpTimesNormal);
   // Normalise it
   vnorm(reflectedDir);
 
@@ -363,7 +363,7 @@ struct Ray incidentRay)
   struct Ray reflectedRay;
   vassign(reflectedRay.dir, reflectedDir);
   vassign(reflectedRay.origin, intersection->point);
-  vassign(reflectedRay.intensity, incidentRay.intensity);
+  vassign(reflectedRay.intensity, incidentRay->intensity);
   // Shift the ray by a little amount from the surface it collided with
   Vec smallShift; vsmul(smallShift, kSmallShift, reflectedRay.dir);
   vadd(reflectedRay.origin, reflectedRay.origin, smallShift);
@@ -705,19 +705,22 @@ struct Ray ray, struct Material refractiveMaterial,
       // The components of the colour are diminished based on the 
       // transparency available as calculated by calculateRefraction.
       Vec reflectionCol = { 1.f, 1.f, 1.f };
+	  {
       float transparency = 1.f - currSnapshot.intersection.object.material.opacity;
       float prod = transparency * currSnapshot.refractiveReflectionFactor;
       vsmul(reflectionCol, prod, reflectionCol);
-
+	  }
 
       // Add the glossy part of the reflection. This contribution
       // is diminished by the part of the light which wasn't available
       // for refraction (and therefore, reflection)
+	  {
       Vec glossColContrib;
       vsmul(glossColContrib, currSnapshot.refractiveMat.opacity,
         currSnapshot.intersection.object.material.glossColour);
       vadd(reflectionCol, reflectionCol, glossColContrib);
-
+		}
+		
       // Multiply by the intensity of the ray
       vmul(reflectionCol, currSnapshot.ray.intensity, reflectionCol);
 
@@ -726,36 +729,36 @@ struct Ray ray, struct Material refractiveMaterial,
       // If the contribution is significant
       if (isSignificant(&reflectionCol)) {
         // Compute a ray to pass in the function
-        struct Ray reflectionRay;
-        vassign(reflectionRay.dir, currSnapshot.ray.dir);
-        vassign(reflectionRay.intensity, reflectionCol);
-        vassign(reflectionRay.origin, currSnapshot.ray.origin);
+		Vec preVint; vassign(preVint, currSnapshot.ray.intensity);
+        vassign(currSnapshot.ray.intensity, reflectionCol);
 
 
         // Calculate the reflected ray
         struct Ray reflectedRay = calculateReflection(
           &currSnapshot.intersection,
-          reflectionRay);
+          &currSnapshot.ray);
 
+		  
         // Store the state of the current snapshot
         currSnapshot.stage = 2;
-
+		vassign(currSnapshot.ray.intensity, preVint);
+		
         // Push the current state
         rtStackPush(&snapshotsStack, &currSnapshot);
 
         // Create a new snaphot for simulating recursion
-        RtSnapshot newSnapshot;
-        newSnapshot.ray = reflectedRay;
-        newSnapshot.traceDepth = traceDepth + 1;
-        newSnapshot.stage = 0;
-        vinit(newSnapshot.colour, 0.f, 0.f, 0.f);
-        newSnapshot.refractiveMat = currSnapshot.refractiveMat;
+        //RtSnapshot newSnapshot;
+        currSnapshot.ray = reflectedRay;
+        currSnapshot.traceDepth = traceDepth + 1;
+        currSnapshot.stage = 0;
+        vinit(currSnapshot.colour, 0.f, 0.f, 0.f);
+        currSnapshot.refractiveMat = currSnapshot.refractiveMat;
 
         // Push the newly created snapshot
-        rtStackPush(&snapshotsStack, &newSnapshot);
+        rtStackPush(&snapshotsStack, &currSnapshot);
 
         // Execute a new loop
-        continue; 
+        continue;
       }
 
       vassign(colourSum, currSnapshot.colour);
@@ -814,8 +817,6 @@ __kernel void raytrace(
 	
 	// Variables holding the current step in world coordinates
 	float rayX = 0.f, rayY = 0.f;
-
-	int pixelsCounter = 0;
 	
 	// Calculate size of an alias step in world coordinates
 	const float kAliasFactorStepInv = kRayXStep / kAliasFactor;

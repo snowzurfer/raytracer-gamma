@@ -106,7 +106,7 @@ int main(int argc, char** argv)
   const unsigned int kScreenWidth = 800;
   const unsigned int kScreenHeight = 600;
   float zoomFactor = -4.f;
-  float aliasFactor = 1.f;
+  float aliasFactor = 2.f;
 
   size_t globalWorkSize = kScreenWidth * kScreenHeight;
 
@@ -126,21 +126,21 @@ int main(int argc, char** argv)
   struct Material ballMaterial1; // White
   Vec bm1Gloss; vassign(bm1Gloss, redCol);
   Vec bm1Matte; vassign(bm1Matte, greenCol);
-  setMatOpacity(&ballMaterial1, 0.2f);
+  setMatOpacity(&ballMaterial1, 0.9f);
   setMatteGlossBalance(&ballMaterial1, 0.2f, &bm1Matte, &bm1Gloss);
   setMatRefractivityIndex(&ballMaterial1, 1.5500f);
 
   struct Material ballMaterial2; // Red
   Vec bm2Gloss; vassign(bm2Gloss, redCol);
   Vec bm2Matte; vassign(bm2Matte, greenCol);
-  setMatOpacity(&ballMaterial2, 0.6f);
+  setMatOpacity(&ballMaterial2, 0.2f);
   setMatteGlossBalance(&ballMaterial2, 0.8f, &bm2Matte, &bm2Gloss);
   setMatRefractivityIndex(&ballMaterial2, 1.5500f);
 
   struct Material ballMaterial3; // Red
   Vec bm3Gloss; vassign(bm3Gloss, col1);
   Vec bm3Matte; vassign(bm3Matte, col1);
-  setMatOpacity(&ballMaterial3, 0.8f);
+  setMatOpacity(&ballMaterial3, 1.0f);
   setMatteGlossBalance(&ballMaterial3, 0.6f, &bm3Matte, &bm3Gloss);
   setMatRefractivityIndex(&ballMaterial3, 1.5500f);
 
@@ -286,13 +286,15 @@ int main(int argc, char** argv)
 
   // Write data from host into device memory (fill the buffers with
   // the host arrays)
-  err = clEnqueueWriteBuffer(commandsGPU, dSpheres, CL_FALSE, 0,
+  err = clEnqueueWriteBuffer(commandsGPU, dSpheres, CL_TRUE, 0,
     sizeof(struct Sphere) * sphNum, hSpheres, 0, NULL, NULL);
   checkError(err, "Copying hSperes in dSpheres");
-  err = clEnqueueWriteBuffer(commandsGPU, dLights, CL_FALSE, 0,
+  err = clEnqueueWriteBuffer(commandsGPU, dLights, CL_TRUE, 0,
     sizeof(struct Light) * lgtNum, hLights, 0, NULL, NULL);
   checkError(err, "Copying hLights into dLights");
 
+
+  
 
 
   // Set kernel arguments
@@ -324,7 +326,7 @@ int main(int argc, char** argv)
 
 
   // Image
-  float *imagePtr = (float *)malloc(globalWorkSize * sizeof(Vec));
+  /*float *imagePtr = (float *)malloc(globalWorkSize * sizeof(Vec));
 
 
 
@@ -398,36 +400,33 @@ int main(int argc, char** argv)
     *(imagePtr + pixelsCounter) = pixelCol.x;
     *(imagePtr + pixelsCounter + 1) = pixelCol.y;
     *(imagePtr + pixelsCounter + 2) = pixelCol.z;
-  }
+  }*/
 
-
+  // Create a buffer to hold the result of the computation on the device
   Vec *pixelsIntermediate = (Vec *)calloc(kScreenHeight * kScreenWidth, sizeof(Vec));
 
-  memcpy(pixelsIntermediate, imagePtr, (kScreenHeight * kScreenWidth * sizeof(RGB)));
-
-
-  float maxColourValue = maxColourValuePixelBuffer(pixelsIntermediate,
-    kScreenWidth * kScreenHeight);
-
-  free (pixelsIntermediate);
-
-  // Print execution time
-  /*rtime = wtime() - rtime;
-  printf("\nThe kernel ran in %lf seconds\n", rtime);*/
-
-  // Read back the results from the device memory
-  // Create a buffer of pixels
-  cl_float4 *dst;
-
-  err = clEnqueueReadBuffer(commandsGPU, dC, CL_FALSE, 0,
-  sizeof(float)* count, hC, 0, NULL, NULL);
+  // Read the results back from the device into the host
+  err = clEnqueueReadBuffer(commandsGPU, dPixelBuffer, CL_FALSE, 0,
+    sizeof(Vec)* kScreenHeight * kScreenWidth, pixelsIntermediate, 0, NULL, NULL);
   // If the reading operation didn't complete successfully
   if (err != CL_SUCCESS) {
-    printf("Error: Failed to read output array!\n%s\n", err_code(err));
+    printf("Error: Failed to read output buffer!\n%s\n", err_code(err));
 
     // Exit
     exit(1);
   }
+
+  // Calculate the maximum colour value across the whole picture
+  float maxColourValue = maxColourValuePixelBuffer(pixelsIntermediate,
+    kScreenWidth * kScreenHeight);
+
+  // Cast the buffer to the type accepted by the savePPM function
+  RGB *pixels = (RGB *)(pixelsIntermediate);
+
+  // Print execution time
+  /*rtime = wtime() - rtime;
+  printf("\nThe kernel ran in %lf seconds\n", rtime);*/
+ 
 
   // Cleanup
   clReleaseMemObject(dPixelBuffer);
@@ -448,17 +447,8 @@ int main(int argc, char** argv)
 
 
   // Try to save a PPM picture
-
-  RGB *pixels = (RGB *)calloc(kScreenHeight * kScreenWidth, sizeof(RGB));
-
-  memcpy(pixels, imagePtr, (kScreenHeight * kScreenWidth * sizeof(RGB)));
-
-
-  free(imagePtr);
-
-
   savePPM(pixels, "testPPM.ppm", kScreenWidth, kScreenHeight, maxColourValue);
-  free(pixels);
+  free(pixelsIntermediate);
 
  
 
