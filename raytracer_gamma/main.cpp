@@ -103,7 +103,7 @@ int main(int argc, char** argv)
   const unsigned int kScreenWidth = 800;
   const unsigned int kScreenHeight = 600;
   float zoomFactor = -4.f;
-  float aliasFactor = 1.f;
+  float aliasFactor = 2.f;
 
   size_t globalWorkSize = kScreenWidth * kScreenHeight;
 

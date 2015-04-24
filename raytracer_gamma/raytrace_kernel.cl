@@ -55,7 +55,7 @@ struct Intersection {
   float squaredDist;
 };
 
-#define RTSTACK_MAXSIZE 6
+#define RTSTACK_MAXSIZE 10
 
 // RtSnapshot
 typedef struct
@@ -650,7 +650,7 @@ struct Light *lights, const unsigned int lgtNum,
 struct Ray ray, struct Material refractiveMaterial,
   int traceDepth)
 {
-  const int kMaxTraceDepth = 2;
+  const int kMaxTraceDepth = RTSTACK_MAXSIZE - 1;
 
   // Colour to be computed and returned
   Vec colourSum; vinit(colourSum, 0.f, 0.f, 0.f);
