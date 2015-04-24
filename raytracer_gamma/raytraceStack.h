@@ -7,7 +7,7 @@
 #include "material.h"
 #include "intersection.h"
 
-#define RTSTACK_MAXSIZE 20
+#define RTSTACK_MAXSIZE 6
 
 // RtSnapshot
 typedef struct

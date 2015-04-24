@@ -419,7 +419,7 @@ struct Light *lights, const unsigned int lgtNum,
 struct Ray ray, struct Material refractiveMaterial,
   int traceDepth)
 {
-  const int kMaxTraceDepth = 10;
+  const int kMaxTraceDepth = RSIZE_MAX - 1;
 
   // Colour to be computed and returned
   Vec colourSum; vinit(colourSum, 0.f, 0.f, 0.f);
@@ -439,11 +439,12 @@ struct Ray ray, struct Material refractiveMaterial,
   // Push it into the stack
   rtStackPush(&snapshotsStack, &currSnapshot);
 
+  bool loop = !(rtStackIsEmpty(&snapshotsStack));
   // While the stack is not empty
-  while (!rtStackIsEmpty(&snapshotsStack)) {
-    // Read top / pop an element from the stack
-    currSnapshot = *rtStackTop(&snapshotsStack);
-    rtStackPop(&snapshotsStack);
+  while (loop) {
+	  // Read top / pop an element from the stack
+	  currSnapshot = *rtStackTop(&snapshotsStack);
+	  rtStackPop(&snapshotsStack);
 
     // Depending on the stage of the recursion
     // (There is code to be processed both before a recursion call
@@ -490,50 +491,49 @@ struct Ray ray, struct Material refractiveMaterial,
 
 
             // If there is transparency
-            //if (transparency > 0.f) {
-            //  // Calculate a ray to pass in the calculate refraction method
-            //  struct Ray refractionRay;
-            //  vassign(refractionRay.dir, currSnapshot.ray.dir);
-            //  vsmul(refractionRay.intensity, transparency, currSnapshot.ray.intensity);
-            //  vassign(refractionRay.origin, currSnapshot.ray.origin);
+            if (transparency > 0.f) {
+              // Calculate a ray to pass in the calculate refraction method
+              struct Ray refractionRay;
+              vassign(refractionRay.dir, currSnapshot.ray.dir);
+              vsmul(refractionRay.intensity, transparency, currSnapshot.ray.intensity);
+              vassign(refractionRay.origin, currSnapshot.ray.origin);
 
-            //  struct Material targetMaterial;
+              struct Material targetMaterial;
 
-            //  // Calculate the refraction
-            //  struct Ray refractedRay = calculateRefraction(
-            //    spheres,
-            //    sphNum,
-            //    lights,
-            //    lgtNum,
-            //    &currSnapshot.intersection,
-            //    refractionRay,
-            //    currSnapshot.traceDepth,
-            //    &currSnapshot.refractiveMat,
-            //    &targetMaterial,
-            //    &refractiveReflectionFactor);
+              // Calculate the refraction
+              struct Ray refractedRay = calculateRefraction(
+                spheres,
+                sphNum,
+                lights,
+                lgtNum,
+                &currSnapshot.intersection,
+                refractionRay,
+                currSnapshot.traceDepth,
+                &currSnapshot.refractiveMat,
+                &targetMaterial,
+                &refractiveReflectionFactor);
 
-            //  // Store the state of the current snapshot
-            //  currSnapshot.refractiveReflectionFactor = 
-            //    refractiveReflectionFactor;
-            //  currSnapshot.stage = 1;
+              // Store the state of the current snapshot
+              currSnapshot.refractiveReflectionFactor = 
+                refractiveReflectionFactor;
+              currSnapshot.stage = 1;
 
-            //  // Push the current state
-            //  rtStackPush(&snapshotsStack, &currSnapshot);
+              // Push the current state
+              rtStackPush(&snapshotsStack, &currSnapshot);
 
-            //  // Create a new snaphot for simulating recursion
-            //  RtSnapshot newSnapshot;
-            //  newSnapshot.ray = refractedRay;
-            //  newSnapshot.traceDepth = traceDepth + 1;
-            //  newSnapshot.stage = 0;
-            //  vinit(newSnapshot.colour, 0.f, 0.f, 0.f);
-            //  newSnapshot.refractiveMat = targetMaterial;
-            //  
-            //  // Push the newly created snapshot
-            //  rtStackPush(&snapshotsStack, &newSnapshot);
+              // Create a new snaphot for simulating recursion
+              RtSnapshot newSnapshot;
+              newSnapshot.ray = refractedRay;
+              newSnapshot.traceDepth = traceDepth + 1;
+              newSnapshot.stage = 0;
+              vinit(newSnapshot.colour, 0.f, 0.f, 0.f);
+              newSnapshot.refractiveMat = targetMaterial;
+              
+              // Push the newly created snapshot
+			  rtStackPush(&snapshotsStack, &newSnapshot);
 
-            //  // Execute a new loop
-            //  continue;
-            //}
+              // Execute a new loop
+            }
 
             vassign(colourSum, currSnapshot.colour);
           }
@@ -545,7 +545,7 @@ struct Ray ray, struct Material refractiveMaterial,
           currSnapshot.refractiveMat.matteColour);
       }
 
-      continue;
+
       break;
     }
     // After refraction recursion
@@ -611,12 +611,10 @@ struct Ray ray, struct Material refractiveMaterial,
         rtStackPush(&snapshotsStack, &newSnapshot);
 
         // Execute a new loop
-        continue; 
+        
       }
 
       vassign(colourSum, currSnapshot.colour);
-
-      continue;
       break;
     }
     case 2: {
@@ -626,12 +624,12 @@ struct Ray ray, struct Material refractiveMaterial,
       // One iteration is finished, therefore save the result into the
       // main variable
       vassign(colourSum, currSnapshot.colour);
-
-      continue;
       break;
     }
 
     }
+
+	loop = !(rtStackIsEmpty(&snapshotsStack));
   }
 
   return colourSum;

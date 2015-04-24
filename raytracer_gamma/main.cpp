@@ -8,6 +8,7 @@
 #include <fstream>
 #include <algorithm>
 #include <raytracer.h>
+#include <chrono>
 
 #ifdef __APPLE__
 #include <OpenCL/opencl.h>
@@ -102,7 +103,7 @@ int main(int argc, char** argv)
   const unsigned int kScreenWidth = 800;
   const unsigned int kScreenHeight = 600;
   float zoomFactor = -4.f;
-  float aliasFactor = 3.f;
+  float aliasFactor = 1.f;
 
   size_t globalWorkSize = kScreenWidth * kScreenHeight;
 
@@ -305,7 +306,8 @@ int main(int argc, char** argv)
   err |= clSetKernelArg(koRTG, 8, sizeof(cl_mem), &dPixelBuffer);
   checkError(err, "Setting kernel arguments");
 
-  /*double rtime = wtime();*/
+  // Start counting the time between kernel enqueuing and completion
+  std::chrono::steady_clock::time_point startTime = std::chrono::steady_clock::now();
 
   // Execute the kernel over the entire range of our 1d input data set
   // letting the OpenCL runtime choose the work-group size
@@ -317,7 +319,16 @@ int main(int argc, char** argv)
   err = clFinish(commandsGPU);
   checkError(err, "Waiting for commands to finish");
 
-  printf("Size of vec3: %d", sizeof(Vec));
+  // Read the time after the kernel has executed
+  std::chrono::steady_clock::time_point endTime = std::chrono::steady_clock::now();
+
+  // Compute the duration
+  double kernelExecTime = std::chrono::duration_cast<std::chrono::milliseconds>(endTime - startTime).count();
+
+  
+
+  // Print the duration
+  printf("Exec time: %.5f ms", kernelExecTime);
 
 
 
@@ -448,6 +459,7 @@ int main(int argc, char** argv)
   free(pixelsIntermediate);
   //free(imagePtr);
  
+  getchar();
 
   return 0;
 }
