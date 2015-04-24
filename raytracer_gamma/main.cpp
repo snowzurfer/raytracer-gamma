@@ -72,10 +72,6 @@ void savePPM(const RGB *pixels,
       b = static_cast<unsigned char>
         (std::min(1.f, pixels[i].b) * 255 / maxColourVal);
 
-      if (r > 1) {
-
-        //printf("red: %d \n", r);
-      }
 
       // Write the values
       ofs << r << g << b;
@@ -106,7 +102,7 @@ int main(int argc, char** argv)
   const unsigned int kScreenWidth = 800;
   const unsigned int kScreenHeight = 600;
   float zoomFactor = -4.f;
-  float aliasFactor = 2.f;
+  float aliasFactor = 3.f;
 
   size_t globalWorkSize = kScreenWidth * kScreenHeight;
 
@@ -126,22 +122,22 @@ int main(int argc, char** argv)
   struct Material ballMaterial1; // White
   Vec bm1Gloss; vassign(bm1Gloss, redCol);
   Vec bm1Matte; vassign(bm1Matte, greenCol);
-  setMatOpacity(&ballMaterial1, 0.9f);
+  setMatOpacity(&ballMaterial1, 0.8f);
   setMatteGlossBalance(&ballMaterial1, 0.2f, &bm1Matte, &bm1Gloss);
   setMatRefractivityIndex(&ballMaterial1, 1.5500f);
 
   struct Material ballMaterial2; // Red
   Vec bm2Gloss; vassign(bm2Gloss, redCol);
   Vec bm2Matte; vassign(bm2Matte, greenCol);
-  setMatOpacity(&ballMaterial2, 0.2f);
-  setMatteGlossBalance(&ballMaterial2, 0.8f, &bm2Matte, &bm2Gloss);
+  setMatOpacity(&ballMaterial2, 0.3f);
+  setMatteGlossBalance(&ballMaterial2, 0.95f, &bm2Matte, &bm2Gloss);
   setMatRefractivityIndex(&ballMaterial2, 1.5500f);
 
   struct Material ballMaterial3; // Red
   Vec bm3Gloss; vassign(bm3Gloss, col1);
   Vec bm3Matte; vassign(bm3Matte, col1);
-  setMatOpacity(&ballMaterial3, 1.0f);
-  setMatteGlossBalance(&ballMaterial3, 0.6f, &bm3Matte, &bm3Gloss);
+  setMatOpacity(&ballMaterial3, 0.6f);
+  setMatteGlossBalance(&ballMaterial3, 0.0, &bm3Matte, &bm3Gloss);
   setMatRefractivityIndex(&ballMaterial3, 1.5500f);
 
   // Setup spheres
@@ -152,8 +148,8 @@ int main(int argc, char** argv)
   vinit(hSpheres[0].pos, -9.f, 0.f, -13.f);
   hSpheres[0].radius = 5.f;
   hSpheres[1].material = ballMaterial2;
-  vinit(hSpheres[1].pos, 9.f, 3.f, -13.f);
-  hSpheres[1].radius = 5.f;
+  vinit(hSpheres[1].pos, -4.f, 1.5f, -5.f);
+  hSpheres[1].radius = 2.f;
   hSpheres[2].material = ballMaterial3;
   vinit(hSpheres[2].pos, 1.f, -1.f, -7.f);
   hSpheres[2].radius = 3.f;
@@ -326,88 +322,89 @@ int main(int argc, char** argv)
 
 
   // Image
-  /*float *imagePtr = (float *)malloc(globalWorkSize * sizeof(Vec));
+  //float *imagePtr = (float *)malloc(globalWorkSize * sizeof(Vec));
 
 
 
-  // Screen in world coordinates
-  const float kImageWorldWidth = 16.f;
-  const float kImageWorldHeight = 12.f;
+  //// Screen in world coordinates
+  //const float kImageWorldWidth = 16.f;
+  //const float kImageWorldHeight = 12.f;
 
-  // Amount to increase each step for the ray direction
-  const float kRayXStep = kImageWorldWidth / ((float)kScreenWidth);
-  const float kRayYStep = kImageWorldHeight / ((float)kScreenHeight);
-  const float aspectRatio = kImageWorldWidth / kImageWorldHeight;
+  //// Amount to increase each step for the ray direction
+  //const float kRayXStep = kImageWorldWidth / ((float)kScreenWidth);
+  //const float kRayYStep = kImageWorldHeight / ((float)kScreenHeight);
+  //const float aspectRatio = kImageWorldWidth / kImageWorldHeight;
 
-  // Variables holding the current step in world coordinates
-  float rayX = 0.f, rayY = 0.f;
+  //// Variables holding the current step in world coordinates
+  //float rayX = 0.f, rayY = 0.f;
 
-  int pixelsCounter = 0;
+  //int pixelsCounter = 0;
 
-  // Calculate size of an alias step in world coordinates
-  const float kAliasFactorStepInv = kRayXStep / aliasFactor;
-  // Calculate total size of samples to be taken
-  const float kSamplesTot = aliasFactor * aliasFactor;
-  // Also its inverse
-  const float kSamplesTotinv = 1.f / kSamplesTot;
+  //// Calculate size of an alias step in world coordinates
+  //const float kAliasFactorStepInv = kRayXStep / aliasFactor;
+  //// Calculate total size of samples to be taken
+  //const float kSamplesTot = aliasFactor * aliasFactor;
+  //// Also its inverse
+  //const float kSamplesTotinv = 1.f / kSamplesTot;
 
-  for (int y = 0; y < kScreenWidth * kScreenHeight; ++y, pixelsCounter += 3) {
-    // Retrieve the global ID of the kernel
-    const unsigned gid = y;
+  //for (int y = 0; y < kScreenWidth * kScreenHeight; ++y, pixelsCounter += 3) {
+  //  // Retrieve the global ID of the kernel
+  //  const unsigned gid = y;
 
-    
+  //  
 
-    // Calculate world position of pixel being currently worked on
-    const float kPxWorldX = ((((float)(gid % kScreenWidth) - 
-      (kScreenWidth * 0.5f))) * kRayXStep);
-    const float kPxWorldY = ((kScreenHeight *0.5f) - ((float)(gid / kScreenWidth))) * kRayYStep;
+  //  // Calculate world position of pixel being currently worked on
+  //  const float kPxWorldX = ((((float)(gid % kScreenWidth) - 
+  //    (kScreenWidth * 0.5f))) * kRayXStep);
+  //  const float kPxWorldY = ((kScreenHeight *0.5f) - ((float)(gid / kScreenWidth))) * kRayYStep;
 
-    // The ray to be shot. The vantage point (camera) is at the origin,
-    // and its intensity is maximum
-    struct Ray ray; vinit(ray.origin, 0.f, 0.f, 0.f); vinit(ray.intensity, 1.f, 1.f, 1.f);
+  //  // The ray to be shot. The vantage point (camera) is at the origin,
+  //  // and its intensity is maximum
+  //  struct Ray ray; vinit(ray.origin, 0.f, 0.f, 0.f); vinit(ray.intensity, 1.f, 1.f, 1.f);
 
-    // The colour of the pixel to be computed
-    Vec pixelCol = { 0.f, 0.f, 0.f };
+  //  // The colour of the pixel to be computed
+  //  Vec pixelCol = { 0.f, 0.f, 0.f };
 
-    // Mock background material
-    struct Material bgMaterial;
-    Vec black; vinit(black, 0.f, 0.f, 0.f);
-    setMatteGlossBalance(&bgMaterial, 0.f, &black, &black);
-    setMatRefractivityIndex(&bgMaterial, 1.00f);
+  //  // Mock background material
+  //  struct Material bgMaterial;
+  //  Vec black; vinit(black, 0.f, 0.f, 0.f);
+  //  setMatteGlossBalance(&bgMaterial, 0.f, &black, &black);
+  //  setMatRefractivityIndex(&bgMaterial, 1.00f);
 
-    // For each sample to be taken
-    for (int i = 0; i < aliasFactor; ++i) {
-      for (int j = 0; j < aliasFactor; ++j) {
-        // Calculate the direction of the ray
-        float x = (kPxWorldX + (float)(((float)j) * kAliasFactorStepInv)) * aspectRatio;
-        float y = (kPxWorldY + (float)(((float)i) * kAliasFactorStepInv));
+  //  // For each sample to be taken
+  //  for (int i = 0; i < aliasFactor; ++i) {
+  //    for (int j = 0; j < aliasFactor; ++j) {
+  //      // Calculate the direction of the ray
+  //      float x = (kPxWorldX + (float)(((float)j) * kAliasFactorStepInv)) * aspectRatio;
+  //      float y = (kPxWorldY + (float)(((float)i) * kAliasFactorStepInv));
 
-        // Set the ray's dir and normalise it
-        vinit(ray.dir, x, y, zoomFactor); vnorm(ray.dir);
+  //      // Set the ray's dir and normalise it
+  //      vinit(ray.dir, x, y, zoomFactor); vnorm(ray.dir);
 
-        // Raytrace for the current sample
-        Vec currentSampleCol = rayTrace(hSpheres, sphNum, hLights, lgtNum,
-          ray, bgMaterial, 0);
+  //      // Raytrace for the current sample
+  //      Vec currentSampleCol = rayTrace(hSpheres, sphNum, hLights, lgtNum,
+  //        ray, bgMaterial, 0);
 
-        vsmul(currentSampleCol, kSamplesTotinv, currentSampleCol);
+  //      vsmul(currentSampleCol, kSamplesTotinv, currentSampleCol);
 
-        // Compute the average
-        vadd(pixelCol, pixelCol, currentSampleCol);
-      }
-    }
+  //      // Compute the average
+  //      vadd(pixelCol, pixelCol, currentSampleCol);
+  //    }
+  //  }
 
-    // Write result in destination buffer
-    *(imagePtr + pixelsCounter) = pixelCol.x;
-    *(imagePtr + pixelsCounter + 1) = pixelCol.y;
-    *(imagePtr + pixelsCounter + 2) = pixelCol.z;
-  }*/
+  //  // Write result in destination buffer
+  //  *(imagePtr + pixelsCounter) = pixelCol.x;
+  //  *(imagePtr + pixelsCounter + 1) = pixelCol.y;
+  //  *(imagePtr + pixelsCounter + 2) = pixelCol.z;
+  //}
 
   // Create a buffer to hold the result of the computation on the device
   Vec *pixelsIntermediate = (Vec *)calloc(kScreenHeight * kScreenWidth, sizeof(Vec));
+  //Vec *pixelsIntermediate = (Vec *)(imagePtr);
 
   // Read the results back from the device into the host
-  err = clEnqueueReadBuffer(commandsGPU, dPixelBuffer, CL_FALSE, 0,
-    sizeof(Vec)* kScreenHeight * kScreenWidth, pixelsIntermediate, 0, NULL, NULL);
+  err = clEnqueueReadBuffer(commandsGPU, dPixelBuffer, CL_TRUE, 0,
+	  kScreenWidth * kScreenHeight * sizeof(Vec), pixelsIntermediate, 0, NULL, NULL);
   // If the reading operation didn't complete successfully
   if (err != CL_SUCCESS) {
     printf("Error: Failed to read output buffer!\n%s\n", err_code(err));
@@ -449,7 +446,7 @@ int main(int argc, char** argv)
   // Try to save a PPM picture
   savePPM(pixels, "testPPM.ppm", kScreenWidth, kScreenHeight, maxColourValue);
   free(pixelsIntermediate);
-
+  //free(imagePtr);
  
 
   return 0;

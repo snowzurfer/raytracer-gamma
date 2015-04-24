@@ -490,50 +490,50 @@ struct Ray ray, struct Material refractiveMaterial,
 
 
             // If there is transparency
-            if (transparency > 0.f) {
-              // Calculate a ray to pass in the calculate refraction method
-              struct Ray refractionRay;
-              vassign(refractionRay.dir, currSnapshot.ray.dir);
-              vsmul(refractionRay.intensity, transparency, currSnapshot.ray.intensity);
-              vassign(refractionRay.origin, currSnapshot.ray.origin);
+            //if (transparency > 0.f) {
+            //  // Calculate a ray to pass in the calculate refraction method
+            //  struct Ray refractionRay;
+            //  vassign(refractionRay.dir, currSnapshot.ray.dir);
+            //  vsmul(refractionRay.intensity, transparency, currSnapshot.ray.intensity);
+            //  vassign(refractionRay.origin, currSnapshot.ray.origin);
 
-              struct Material targetMaterial;
+            //  struct Material targetMaterial;
 
-              // Calculate the refraction
-              struct Ray refractedRay = calculateRefraction(
-                spheres,
-                sphNum,
-                lights,
-                lgtNum,
-                &currSnapshot.intersection,
-                refractionRay,
-                currSnapshot.traceDepth,
-                &currSnapshot.refractiveMat,
-                &targetMaterial,
-                &refractiveReflectionFactor);
+            //  // Calculate the refraction
+            //  struct Ray refractedRay = calculateRefraction(
+            //    spheres,
+            //    sphNum,
+            //    lights,
+            //    lgtNum,
+            //    &currSnapshot.intersection,
+            //    refractionRay,
+            //    currSnapshot.traceDepth,
+            //    &currSnapshot.refractiveMat,
+            //    &targetMaterial,
+            //    &refractiveReflectionFactor);
 
-              // Store the state of the current snapshot
-              currSnapshot.refractiveReflectionFactor = 
-                refractiveReflectionFactor;
-              currSnapshot.stage = 1;
+            //  // Store the state of the current snapshot
+            //  currSnapshot.refractiveReflectionFactor = 
+            //    refractiveReflectionFactor;
+            //  currSnapshot.stage = 1;
 
-              // Push the current state
-              rtStackPush(&snapshotsStack, &currSnapshot);
+            //  // Push the current state
+            //  rtStackPush(&snapshotsStack, &currSnapshot);
 
-              // Create a new snaphot for simulating recursion
-              RtSnapshot newSnapshot;
-              newSnapshot.ray = refractedRay;
-              newSnapshot.traceDepth = traceDepth + 1;
-              newSnapshot.stage = 0;
-              vinit(newSnapshot.colour, 0.f, 0.f, 0.f);
-              newSnapshot.refractiveMat = targetMaterial;
-              
-              // Push the newly created snapshot
-              rtStackPush(&snapshotsStack, &newSnapshot);
+            //  // Create a new snaphot for simulating recursion
+            //  RtSnapshot newSnapshot;
+            //  newSnapshot.ray = refractedRay;
+            //  newSnapshot.traceDepth = traceDepth + 1;
+            //  newSnapshot.stage = 0;
+            //  vinit(newSnapshot.colour, 0.f, 0.f, 0.f);
+            //  newSnapshot.refractiveMat = targetMaterial;
+            //  
+            //  // Push the newly created snapshot
+            //  rtStackPush(&snapshotsStack, &newSnapshot);
 
-              // Execute a new loop
-              continue;
-            }
+            //  // Execute a new loop
+            //  continue;
+            //}
 
             vassign(colourSum, currSnapshot.colour);
           }
