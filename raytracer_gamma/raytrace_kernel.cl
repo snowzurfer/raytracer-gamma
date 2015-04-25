@@ -55,7 +55,7 @@ struct Intersection {
   float squaredDist;
 };
 
-#define RTSTACK_MAXSIZE 10
+#define RTSTACK_MAXSIZE 5
 
 // RtSnapshot
 typedef struct
@@ -671,6 +671,8 @@ struct Ray ray, struct Material refractiveMaterial,
   rtStackPush(&snapshotsStack, &currSnapshot);
 
   bool loop = !(rtStackIsEmpty(&snapshotsStack));
+  
+  
   // While the stack is not empty
   while (loop) {
 	  // Read top / pop an element from the stack
@@ -828,16 +830,16 @@ struct Ray ray, struct Material refractiveMaterial,
        // Push the current state
        rtStackPush(&snapshotsStack, &currSnapshot);
 
-       // Create a new snaphot for simulating recursion
-       RtSnapshot newSnapshot;
-       newSnapshot.ray = reflectedRay;
-       newSnapshot.traceDepth = traceDepth + 1;
-       newSnapshot.stage = 0;
-       vinit(newSnapshot.colour, 0.f, 0.f, 0.f);
-       newSnapshot.refractiveMat = currSnapshot.refractiveMat;
+       // // Create a new snaphot for simulating recursion
+       //RtSnapshot newSnapshot;
+       currSnapshot.ray = reflectedRay;
+       currSnapshot.traceDepth = traceDepth + 1;
+       currSnapshot.stage = 0;
+       vinit(currSnapshot.colour, 0.f, 0.f, 0.f);
+       currSnapshot.refractiveMat;
 
        // Push the newly created snapshot
-       rtStackPush(&snapshotsStack, &newSnapshot);
+       rtStackPush(&snapshotsStack, &currSnapshot);
       }
 
       vassign(colourSum, currSnapshot.colour);
@@ -854,7 +856,7 @@ struct Ray ray, struct Material refractiveMaterial,
       break;
     }
 
-    }
+     }
 	
 	loop = !(rtStackIsEmpty(&snapshotsStack));
   }
@@ -915,11 +917,11 @@ __kernel void raytrace(
 	setMatRefractivityIndex(&bgMaterial, 1.00f);
 	
 	// For each sample to be taken
-     for (int i = 0; i < kAliasFactor; ++i) {
-       for (int j = 0; j < kAliasFactor; ++j) {
+    for (int i = 0; i < kAliasFactor; ++i) {
+      for (int j = 0; j < kAliasFactor; ++j) {
         // Calculate the direction of the ray
-        float x = (kPxWorldX + (float)(((float)i) * kAliasFactorStepInv)) * aspectRatio;
-        float y = (kPxWorldY + (float)(((float)j) * kAliasFactorStepInv));
+		float x = (kPxWorldX + (float)(((float)j) * kAliasFactorStepInv)) * aspectRatio;
+		float y = (kPxWorldY + (float)(((float)i) * kAliasFactorStepInv));
 
         // Set the ray's dir and normalise it
         vinit(ray.dir, x, y, kZoom); vnorm(ray.dir);
@@ -938,8 +940,8 @@ __kernel void raytrace(
 
         // Compute the average
         vadd(pixelCol, pixelCol, currentSample);
-       }
-     }
+        }
+      }
 	
 	// Write result in destination buffer
 	vassign(dst[gid], pixelCol);

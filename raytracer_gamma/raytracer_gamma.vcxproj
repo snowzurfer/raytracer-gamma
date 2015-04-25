@@ -42,7 +42,7 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <LinkIncremental>true</LinkIncremental>
     <IncludePath>$(ProjectDir);$(CUDA_INC_PATH);$(IncludePath)</IncludePath>
-    <LibraryPath>$(ProjectDir)\win32;$(CUDA_LIB_PATH);$(ProjectDir)\x64;$(LibraryPath)</LibraryPath>
+    <LibraryPath>$(CUDA_LIB_PATH);$(LibraryPath)</LibraryPath>
     <SourcePath>$(ProjectDir);$(SourcePath)</SourcePath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
