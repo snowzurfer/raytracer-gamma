@@ -93,13 +93,11 @@ void savePPM(const RGB *pixels,
 
 int main(int argc, char** argv)
 {
+
+  // Read the arguments of the 
+
   // Error code returned from openCL calls
   int err;
-
-  // A, B and C arrays
-  float *hA = (float *)calloc(LENGTH, sizeof(float));
-  float *hB = (float *)calloc(LENGTH, sizeof(float));
-  float *hC = (float *)calloc(LENGTH, sizeof(float));
 
   // Define the scene
   const unsigned int kScreenWidth = 800;
@@ -107,8 +105,9 @@ int main(int argc, char** argv)
   float zoomFactor = -4.f;
   float aliasFactor = 3.f;
 
+  // Define the constants for OCL
   size_t globalWorkSize = kScreenWidth * kScreenHeight;
-  size_t localWorkSize = 256;
+  size_t localWorkSize = 64;
 
   // Colours
   Vec whiteCol;
@@ -213,7 +212,7 @@ int main(int argc, char** argv)
   // Once a device has been obtained, print out its info
   err = output_device_info(deviceId);
   checkError(err, "Printing device output");
-
+  
 
 
   // Create a context for the GPU
@@ -295,6 +294,7 @@ int main(int argc, char** argv)
 
   cl_int   status;
   cl_uint maxDims;
+  cl_uint recommWorkSize;
   cl_event events[2];
   size_t maxWorkGroupSize;
 
@@ -303,33 +303,35 @@ int main(int argc, char** argv)
   * work item dimensions and the maximmum
   * work item sizes
   */
-  status = clGetDeviceInfo(
+  err = clGetDeviceInfo(
 	  deviceId,
 	  CL_DEVICE_MAX_WORK_GROUP_SIZE,
 	  sizeof(size_t),
 	  (void*)&maxWorkGroupSize,
 	  NULL);
-  if (status != CL_SUCCESS)
-  {
-	  fprintf(stderr, "Error: Getting Device Info. (clGetDeviceInfo)\n");
-	  return 1;
-  }
+  checkError(err, "Getting max work group size");
 
-  status = clGetDeviceInfo(
-	  deviceId,
-	  CL_DEVICE_MAX_WORK_ITEM_DIMENSIONS,
-	  sizeof(cl_uint),
-	  (void*)&maxDims,
-	  NULL);
-  if (status != CL_SUCCESS)
-  {
-	  fprintf(stderr, "Error: Getting Device Info. (clGetDeviceInfo)\n");
-	  return 1;
-  }
+  status = clGetKernelWorkGroupInfo(
+    koRTG,
+    deviceId,
+    CL_KERNEL_WORK_GROUP_SIZE,
+    sizeof(cl_uint),
+    &recommWorkSize,
+    NULL);
+  checkError(err, "Getting recommended work group size");
+  printf("Recommended workgroup size for this kernel: %d\n\n", recommWorkSize);
 
-  localWorkSize = maxWorkGroupSize;
 
+  
+  // Set the work item size to be as the one recommended by
+  // the implementation depending on the kernel itself
+  localWorkSize = recommWorkSize;
+
+  // If the global work size is not a multiple of the local
+  // work size
   if (globalWorkSize % localWorkSize != 0) {
+    // Pad the global work size to bea multiple of the local
+    // work size
     globalWorkSize = (globalWorkSize / localWorkSize + 1) * localWorkSize;
   }
 
@@ -348,6 +350,9 @@ int main(int argc, char** argv)
   err |= clSetKernelArg(koRTG, 9, sizeof(struct Sphere) * sphNum, NULL);
   err |= clSetKernelArg(koRTG, 10, sizeof(struct Light) * lgtNum, NULL);
   checkError(err, "Setting kernel arguments");
+
+  
+  printf("Enqueueing kernel...\t");
 
   // Start counting the time between kernel enqueuing and completion
   std::chrono::steady_clock::time_point startTime = std::chrono::steady_clock::now();
@@ -371,7 +376,8 @@ int main(int argc, char** argv)
   
 
   // Print the duration
-  printf("Exec time: %.5f ms", kernelExecTime);
+  printf("Kernel executed!\n");
+  printf("Exec time: %.5f ms\n\nSaving PPM...\t", kernelExecTime);
 
 
 
@@ -502,6 +508,8 @@ int main(int argc, char** argv)
   free(pixelsIntermediate);
   //free(imagePtr);
  
+  printf("Saved PPM!\nEnter a char, then ENTER to exit...\n");
+
   getchar();
 
   return 0;
