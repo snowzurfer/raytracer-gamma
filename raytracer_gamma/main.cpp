@@ -11,6 +11,8 @@
 #include <raytracer.h>
 #include <chrono>
 #include <ppm.h>
+#include <string>
+#include <iostream>
 
 
 #ifdef __APPLE__
@@ -23,39 +25,18 @@
 #define LENGTH (1024)    // length of vectors a, b, and c
 
 
-int main(int argc, char** argv)
-{
+// Colours
+const Vec whiteCol = { 8.f, 8.f, 8.f };
+const Vec lowerWhite = { 0.5f, 0.5f, 0.5f };
+const Vec redCol = { 0.8f, 0.1f, 0.1f };
+const Vec greenCol = { 0.1f, 0.8f, 0.1f };
+const Vec col1 = { 0.01f, 0.8f, 0.01f };
 
-  // Read the arguments of the 
-
-  // Error code returned from openCL calls
-  int err;
-
-  // Define the scene
-  const unsigned int kScreenWidth = 800;
-  const unsigned int kScreenHeight = 600;
-  float zoomFactor = -4.f;
-  float aliasFactor = 3.f;
-
-  // Define the constants for OCL
-  size_t globalWorkSize = kScreenWidth * kScreenHeight;
-  size_t localWorkSize = 64;
-
-  // Colours
-  Vec whiteCol;
-  vinit(whiteCol, 8.f, 8.f, 8.f);
-  Vec lowerWhite;
-  vinit(lowerWhite, 0.5f, 0.5f, 0.5f);
-  Vec redCol;
-  vinit(redCol, 0.8f, 1.f, 0.7f);
-  Vec greenCol;
-  vinit(greenCol, 0.4f, 0.5f, 0.7f);
-  Vec col1;
-  vinit(col1, 0.01f, 0.8f, 0.01f);
-
+// Setup the default scene
+void setupBaseScene(struct Sphere *spheres, struct Light *lights) {
   // Setup materials
   struct Material ballMaterial1; // White
-  Vec bm1Gloss; vassign(bm1Gloss, redCol);
+  Vec bm1Gloss; vassign(bm1Gloss, greenCol);
   Vec bm1Matte; vassign(bm1Matte, greenCol);
   setMatOpacity(&ballMaterial1, 0.8f);
   setMatteGlossBalance(&ballMaterial1, 0.2f, &bm1Matte, &bm1Gloss);
@@ -63,7 +44,7 @@ int main(int argc, char** argv)
 
   struct Material ballMaterial2; // Red
   Vec bm2Gloss; vassign(bm2Gloss, redCol);
-  Vec bm2Matte; vassign(bm2Matte, greenCol);
+  Vec bm2Matte; vassign(bm2Matte, redCol);
   setMatOpacity(&ballMaterial2, 0.3f);
   setMatteGlossBalance(&ballMaterial2, 0.95f, &bm2Matte, &bm2Gloss);
   setMatRefractivityIndex(&ballMaterial2, 1.5500f);
@@ -76,38 +57,69 @@ int main(int argc, char** argv)
   setMatRefractivityIndex(&ballMaterial3, 1.5500f);
 
   // Setup spheres
+  spheres[0].material = ballMaterial1;
+  vinit(spheres[0].pos, -9.f, 0.f, -13.f);
+  spheres[0].radius = 5.f;
+  spheres[1].material = ballMaterial2;
+  vinit(spheres[1].pos, -4.f, 1.5f, -5.f);
+  spheres[1].radius = 2.f;
+  spheres[2].material = ballMaterial3;
+  vinit(spheres[2].pos, 1.f, -1.f, -7.f);
+  spheres[2].radius = 3.f;
+
+  // Setup light sources
+  vinit(lights[0].pos, -45.f, 10.f, 85.f);
+  vassign(lights[0].col, lowerWhite);
+  vinit(lights[1].pos, 20.f, 60.f, -5.f);
+  vassign(lights[1].col, lowerWhite);
+}
+
+
+int main(int argc, char** argv)
+{
+
+  // Read the parameters
+  if (argc == 1) {
+    // Use default settings
+  }
+  else if (argc == 3) {
+    // Read the passed parameters
+
+    // Read the first parameter
+
+  }
+  else {
+    // Something is wrong; communicate it and exit
+  }
+
+  // Allocate spheres on the host
   unsigned int sphNum = 3;
   struct Sphere *hSpheres =
     (struct Sphere *)calloc(sphNum, sizeof(struct Sphere));
-  hSpheres[0].material = ballMaterial1;
-  vinit(hSpheres[0].pos, -9.f, 0.f, -13.f);
-  hSpheres[0].radius = 5.f;
-  hSpheres[1].material = ballMaterial2;
-  vinit(hSpheres[1].pos, -4.f, 1.5f, -5.f);
-  hSpheres[1].radius = 2.f;
-  hSpheres[2].material = ballMaterial3;
-  vinit(hSpheres[2].pos, 1.f, -1.f, -7.f);
-  hSpheres[2].radius = 3.f;
 
-  // Setup light sources
+  // Allocate lights on the host
   unsigned int lgtNum = 2;
   struct Light *hLights =
     (struct Light *)calloc(lgtNum, sizeof(struct Light));
-  vinit(hLights[0].pos, -45.f, 10.f, 85.f);
-  vassign(hLights[0].col, lowerWhite);
-  vinit(hLights[1].pos, 20.f, 60.f, -5.f);
-  vassign(hLights[1].col, lowerWhite);
+
+  // Setup the default scene
+  setupBaseScene(hSpheres, hLights);
 
 
+  
 
-  // Fill vectors a and b with random float values
-  int count = LENGTH;
-  for (int i = 0; i < count; i++){
-    hA[i] = rand() / (float)RAND_MAX;
-    hB[i] = rand() / (float)RAND_MAX;
-  }
+  // Define the scene
+  const unsigned int kScreenWidth = 800;
+  const unsigned int kScreenHeight = 600;
+  float zoomFactor = -4.f;
+  float aliasFactor = 3.f;
 
+  // Define the constants for OCL
+  size_t globalWorkSize = kScreenWidth * kScreenHeight;
+  size_t localWorkSize = 64;
 
+  // Error code returned from openCL calls
+  int err;
 
 
   cl_uint numPlatforms;
@@ -409,12 +421,10 @@ int main(int argc, char** argv)
   float maxColourValue = maxColourValuePixelBuffer(pixelsIntermediate,
     kScreenWidth * kScreenHeight);
 
+
+  using rtg::RGB;
   // Cast the buffer to the type accepted by the savePPM function
   RGB *pixels = (RGB *)(pixelsIntermediate);
-
-  // Print execution time
-  /*rtime = wtime() - rtime;
-  printf("\nThe kernel ran in %lf seconds\n", rtime);*/
  
 
   // Cleanup
@@ -429,14 +439,11 @@ int main(int argc, char** argv)
 
   free(hLights);
   free(hSpheres);
-  free(hA);
-  free(hB);
-  free(hC);
   free(platform);
 
 
   // Try to save a PPM picture
-  savePPM(pixels, "testPPM.ppm", kScreenWidth, kScreenHeight, maxColourValue);
+  rtg::savePPM(pixels, "testPPM.ppm", kScreenWidth, kScreenHeight, maxColourValue);
   free(pixelsIntermediate);
   //free(imagePtr);
  

@@ -21,6 +21,9 @@
     <ClCompile Include="device_info.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="ppm.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="device_picker.h">
@@ -60,6 +63,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="device_info.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="ppm.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
