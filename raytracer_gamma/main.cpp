@@ -8,7 +8,7 @@
 #include <err_code.h>
 #include <fstream>
 #include <algorithm>
-#include <raytracer.h>
+#include <cpuRaytracer.h>
 #include <chrono>
 #include <ppm.h>
 #include <string>
@@ -82,6 +82,10 @@ int main(int argc, char** argv)
   if (argc == 1) {
     // Use default settings
   }
+  else if (argc == 2) {
+    // Read the parameter
+
+  }
   else if (argc == 3) {
     // Read the passed parameters
 
@@ -106,13 +110,16 @@ int main(int argc, char** argv)
   setupBaseScene(hSpheres, hLights);
 
 
-  
-
   // Define the scene
   const unsigned int kScreenWidth = 800;
   const unsigned int kScreenHeight = 600;
   float zoomFactor = -4.f;
   float aliasFactor = 3.f;
+
+
+
+
+  // 
 
   // Define the constants for OCL
   size_t globalWorkSize = kScreenWidth * kScreenHeight;
