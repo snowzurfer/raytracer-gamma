@@ -4,11 +4,13 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/types.h>
-#include "err_code.h"
+#include <device_info.h>
+#include <err_code.h>
 #include <fstream>
 #include <algorithm>
 #include <raytracer.h>
 #include <chrono>
+
 
 #ifdef __APPLE__
 #include <OpenCL/opencl.h>
@@ -103,9 +105,10 @@ int main(int argc, char** argv)
   const unsigned int kScreenWidth = 800;
   const unsigned int kScreenHeight = 600;
   float zoomFactor = -4.f;
-  float aliasFactor = 1.f;
+  float aliasFactor = 2.f;
 
   size_t globalWorkSize = kScreenWidth * kScreenHeight;
+  size_t localWorkSize = 256;
 
   // Colours
   Vec whiteCol;
@@ -208,7 +211,7 @@ int main(int argc, char** argv)
   }
 
   // Once a device has been obtained, print out its info
-//  err = output_device_info(deviceId);
+  err = output_device_info(deviceId);
   checkError(err, "Printing device output");
 
 
@@ -312,7 +315,7 @@ int main(int argc, char** argv)
   // Execute the kernel over the entire range of our 1d input data set
   // letting the OpenCL runtime choose the work-group size
   err = clEnqueueNDRangeKernel(commandsGPU, koRTG, 1, NULL,
-    &globalWorkSize, NULL, 0, NULL, NULL);
+    &globalWorkSize, &localWorkSize, 0, NULL, NULL);
   checkError(err, "Enqueueing kernel");
 
   // Wait for the commands in the queue to be executed

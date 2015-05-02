@@ -14,6 +14,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <device_info.h>
 #ifdef __APPLE__
 #include <OpenCL/opencl.h>
 #else
@@ -21,9 +22,9 @@
 #endif
 //
 //  define VERBOSE if you want to print info about work groups sizes
-//#define  VERBOSE 1
+#define  VERBOSE 1
 #ifdef VERBOSE
-     extern int err_code(cl_int);
+//#include <err_code.h>
 #endif
 
 int output_device_info(cl_device_id device_id)
@@ -87,8 +88,8 @@ int output_device_info(cl_device_id device_id)
                                &max_work_itm_dims, NULL);
     if (err != CL_SUCCESS)
     {
-        printf("Error: Failed to get device Info (CL_DEVICE_MAX_WORK_ITEM_DIMENSIONS)!\n",
-                                                                            err_code(err));
+        printf("Error: Failed to get device Info (CL_DEVICE_MAX_WORK_ITEM_DIMENSIONS)!\n"
+                                                                          );
         return EXIT_FAILURE;
     }
     
@@ -101,14 +102,14 @@ int output_device_info(cl_device_id device_id)
                                max_loc_size, NULL);
     if (err != CL_SUCCESS)
     {
-        printf("Error: Failed to get device Info (CL_DEVICE_MAX_WORK_ITEM_SIZES)!\n",err_code(err));
+        printf("Error: Failed to get device Info (CL_DEVICE_MAX_WORK_ITEM_SIZES)!\n");
         return EXIT_FAILURE;
     }
     err = clGetDeviceInfo( device_id, CL_DEVICE_MAX_WORK_GROUP_SIZE, sizeof(size_t), 
                                &max_wrkgrp_size, NULL);
     if (err != CL_SUCCESS)
     {
-        printf("Error: Failed to get device Info (CL_DEVICE_MAX_WORK_GROUP_SIZE)!\n",err_code(err));
+        printf("Error: Failed to get device Info (CL_DEVICE_MAX_WORK_GROUP_SIZE)!\n");
         return EXIT_FAILURE;
     }
    printf("work group, work item information");
