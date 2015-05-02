@@ -1,3 +1,8 @@
+#ifndef _CPU_RAYTRACER_H
+#define _CPU_RAYTRACER_H
+
+
+
 #include "vec.h"
 #include "algebra.h"
 #include "ray.h"
@@ -5,6 +10,7 @@
 #include "raytraceStack.h"
 #include "sphere.h"
 #include "intersection.h"
+#include "light.h"
 
 // EPSILON is a tolerance value for floating point roundoff error.
 // It is used in many calculations where we want to err
@@ -17,12 +23,7 @@
 
 
 
-struct Light
-{
-  Vec pos;
-  /*Vec dir*/;
-  Vec col;
-};
+
 
 
 // Determine the matte reflection contribution to the illumination
@@ -840,3 +841,6 @@ struct Ray incidentRay)
   // Trace the ray in the new direction
   return reflectedRay;
 }
+
+
+#endif

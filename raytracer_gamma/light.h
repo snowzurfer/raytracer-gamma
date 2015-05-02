@@ -1,11 +1,15 @@
+#ifndef _LIGHT_H
+#define _LIGHT_H
 
 // Includes
-#include <CL/cl.h>
+#include <vec.h>
 
 struct Light
 {
-  cl_float3 pos;
-  cl_float3 dir;
-  cl_float4 colour;
+  Vec pos;
+  /*Vec dir*/;
+  Vec col;
 };
 // EO Struct
+
+#endif
