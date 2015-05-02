@@ -42,7 +42,7 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <LinkIncremental>true</LinkIncremental>
     <IncludePath>$(ProjectDir);$(CUDA_INC_PATH);$(IncludePath)</IncludePath>
-    <LibraryPath>$(CUDA_LIB_PATH);$(LibraryPath)</LibraryPath>
+    <LibraryPath>$(ProjectDir)\win32;$(CUDA_LIB_PATH);$(LibraryPath)</LibraryPath>
     <SourcePath>$(ProjectDir);$(SourcePath)</SourcePath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
@@ -82,12 +82,13 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="device_info.c" />
+    <ClCompile Include="device_info.cpp" />
     <ClCompile Include="main.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="algebra.h" />
     <ClInclude Include="common.h" />
+    <ClInclude Include="device_info.h" />
     <ClInclude Include="device_picker.h" />
     <ClInclude Include="err_code.h" />
     <ClInclude Include="intersection.h" />

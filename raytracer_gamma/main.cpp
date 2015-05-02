@@ -4,11 +4,13 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/types.h>
-#include "err_code.h"
+#include <device_info.h>
+#include <err_code.h>
 #include <fstream>
 #include <algorithm>
 #include <raytracer.h>
 #include <chrono>
+
 
 #ifdef __APPLE__
 #include <OpenCL/opencl.h>
@@ -103,9 +105,10 @@ int main(int argc, char** argv)
   const unsigned int kScreenWidth = 800;
   const unsigned int kScreenHeight = 600;
   float zoomFactor = -4.f;
-  float aliasFactor = 1.f;
+  float aliasFactor = 3.f;
 
   size_t globalWorkSize = kScreenWidth * kScreenHeight;
+  size_t localWorkSize = 256;
 
   // Colours
   Vec whiteCol;
@@ -208,7 +211,7 @@ int main(int argc, char** argv)
   }
 
   // Once a device has been obtained, print out its info
-//  err = output_device_info(deviceId);
+  err = output_device_info(deviceId);
   checkError(err, "Printing device output");
 
 
@@ -290,8 +293,46 @@ int main(int argc, char** argv)
     sizeof(struct Light) * lgtNum, hLights, 0, NULL, NULL);
   checkError(err, "Copying hLights into dLights");
 
+  cl_int   status;
+  cl_uint maxDims;
+  cl_event events[2];
+  size_t maxWorkGroupSize;
 
-  
+  /**
+  * Query device capabilities. Maximum
+  * work item dimensions and the maximmum
+  * work item sizes
+  */
+  status = clGetDeviceInfo(
+	  deviceId,
+	  CL_DEVICE_MAX_WORK_GROUP_SIZE,
+	  sizeof(size_t),
+	  (void*)&maxWorkGroupSize,
+	  NULL);
+  if (status != CL_SUCCESS)
+  {
+	  fprintf(stderr, "Error: Getting Device Info. (clGetDeviceInfo)\n");
+	  return 1;
+  }
+
+  status = clGetDeviceInfo(
+	  deviceId,
+	  CL_DEVICE_MAX_WORK_ITEM_DIMENSIONS,
+	  sizeof(cl_uint),
+	  (void*)&maxDims,
+	  NULL);
+  if (status != CL_SUCCESS)
+  {
+	  fprintf(stderr, "Error: Getting Device Info. (clGetDeviceInfo)\n");
+	  return 1;
+  }
+
+  localWorkSize = maxWorkGroupSize;
+
+  if (globalWorkSize % localWorkSize != 0) {
+    globalWorkSize = (globalWorkSize / localWorkSize + 1) * localWorkSize;
+  }
+
 
 
   // Set kernel arguments
@@ -304,6 +345,8 @@ int main(int argc, char** argv)
   err |= clSetKernelArg(koRTG, 6, sizeof(float), &zoomFactor);
   err |= clSetKernelArg(koRTG, 7, sizeof(float), &aliasFactor);
   err |= clSetKernelArg(koRTG, 8, sizeof(cl_mem), &dPixelBuffer);
+  err |= clSetKernelArg(koRTG, 9, sizeof(struct Sphere) * sphNum, NULL);
+  err |= clSetKernelArg(koRTG, 10, sizeof(struct Light) * lgtNum, NULL);
   checkError(err, "Setting kernel arguments");
 
   // Start counting the time between kernel enqueuing and completion
@@ -312,7 +355,7 @@ int main(int argc, char** argv)
   // Execute the kernel over the entire range of our 1d input data set
   // letting the OpenCL runtime choose the work-group size
   err = clEnqueueNDRangeKernel(commandsGPU, koRTG, 1, NULL,
-    &globalWorkSize, NULL, 0, NULL, NULL);
+    &globalWorkSize, &localWorkSize, 0, NULL, NULL);
   checkError(err, "Enqueueing kernel");
 
   // Wait for the commands in the queue to be executed

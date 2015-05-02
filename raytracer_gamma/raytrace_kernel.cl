@@ -146,7 +146,7 @@ void setMatRefractivityIndex(struct Material *m, const float refIndex) {
 // origin to the intersection
 bool raySphere(
 #ifdef GPU_KERNEL
-  OCL_GLOBAL_BUFFER
+  OCL_LOCAL_BUFFER
 #endif
 struct Sphere * sphere, struct Ray *ray, float *t) {
   const float kEPSILON = 1.0e-5f;
@@ -210,7 +210,7 @@ struct Sphere * sphere, struct Ray *ray, float *t) {
 // the intersection a populated intersection object
 bool calcIntersection(
 #ifdef GPU_KERNEL
-  OCL_GLOBAL_BUFFER
+  OCL_LOCAL_BUFFER
 #endif
 struct Sphere *spheres, const unsigned int sphNum,
 struct Ray *ray,
@@ -273,7 +273,7 @@ bool isSignificant(const Vec *colour) {
 // Returns the index to the sphere which contains the point, if any
 int primaryContainer(
 #ifdef GPU_KERNEL
-  OCL_GLOBAL_BUFFER
+  OCL_LOCAL_BUFFER
 #endif
 struct Sphere *spheres, const unsigned int sphNum,
   const Vec *pt) {
@@ -300,7 +300,7 @@ struct Sphere *spheres, const unsigned int sphNum,
 
 bool hasClearLineOfSight(
 #ifdef GPU_KERNEL
-  OCL_GLOBAL_BUFFER
+  OCL_LOCAL_BUFFER
 #endif
 struct Sphere *spheres, const unsigned int sphNum,
   const Vec *ptA, const Vec *ptB) {
@@ -341,11 +341,11 @@ struct Sphere *spheres, const unsigned int sphNum,
 // of an intersection point
 Vec calculateMatte(
 #ifdef GPU_KERNEL
-  OCL_GLOBAL_BUFFER
+  OCL_LOCAL_BUFFER
 #endif
 struct Sphere *spheres, const unsigned int sphNum,
 #ifdef GPU_KERNEL
-  OCL_GLOBAL_BUFFER
+  OCL_LOCAL_BUFFER
 #endif
   const struct Light *lights, const unsigned int lgtNum,
   const struct Intersection *intersection)
@@ -465,11 +465,11 @@ struct Ray *incidentRay)
 // of an intersection point
 struct Ray calculateRefraction(
 #ifdef GPU_KERNEL
-  OCL_GLOBAL_BUFFER
+  OCL_LOCAL_BUFFER
 #endif
 struct Sphere *spheres, const unsigned int sphNum,
 #ifdef GPU_KERNEL
-  OCL_GLOBAL_BUFFER
+  OCL_LOCAL_BUFFER
 #endif
 struct Light *lights, const unsigned int lgtNum,
 struct Intersection *intersection,
@@ -640,11 +640,11 @@ struct Ray incidentRay,
 
 Vec rayTrace(
 #ifdef GPU_KERNEL
-OCL_GLOBAL_BUFFER
+OCL_LOCAL_BUFFER
 #endif
 struct Sphere *spheres, const unsigned int sphNum,
 #ifdef GPU_KERNEL
-  OCL_GLOBAL_BUFFER
+  OCL_LOCAL_BUFFER
 #endif
 struct Light *lights, const unsigned int lgtNum,
 struct Ray ray, struct Material refractiveMaterial,
@@ -836,7 +836,7 @@ struct Ray ray, struct Material refractiveMaterial,
        currSnapshot.traceDepth = traceDepth + 1;
        currSnapshot.stage = 0;
        vinit(currSnapshot.colour, 0.f, 0.f, 0.f);
-       currSnapshot.refractiveMat;
+       // currSnapshot.refractiveMat;
 
        // Push the newly created snapshot
        rtStackPush(&snapshotsStack, &currSnapshot);
@@ -876,10 +876,35 @@ __kernel void raytrace(
 	__private const unsigned int kHeight,
 	__private const float kZoom,
 	__private const float kAliasFactor,
-	__global Vec *dst)     
+	__global Vec *dst,
+	__local struct Sphere *lSpheres,
+	__local struct Light *lLights)     
 {                            
 	// Retrieve the global ID of the kernel
 	const unsigned gid = get_global_id(0); 
+	
+	
+	// Copy contents of global memory into local using a
+	// thread for each element, either light or sphere
+	
+	// Get the local id of the work item
+	int lid = get_local_id(0);
+	
+	// If the local id is less than the number of spheres
+	if(lid < sphNum) {
+		// Copy contents of global memory into local
+		lSpheres[lid] = spheres[lid];
+	}
+	// Do the same with lights
+	if(lid < lgtNum) {
+		// Copy contents of global memory into local
+		lLights[lid] = lights[lid];
+	}
+	
+	// Synchronise the work items of the work group
+	// to be sure that when they reach this point, 
+	// the global memory has been copied into the local
+	barrier(CLK_LOCAL_MEM_FENCE);
 	
 	// Screen in world coordinates
 	const float kImageWorldWidth = 16.f;
@@ -927,9 +952,9 @@ __kernel void raytrace(
         vinit(ray.dir, x, y, kZoom); vnorm(ray.dir);
 		
 		Vec currentSample = rayTrace(
-			spheres,
+			lSpheres,
 			sphNum,
-			lights,
+			lLights,
 			lgtNum,
 			ray,
 			bgMaterial,
