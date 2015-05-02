@@ -881,10 +881,13 @@ __kernel void raytraceGlobal(
 	// Retrieve the global ID of the kernel
 	const unsigned gid = get_global_id(0); 
 	
+	// Make sure that the work item is valid (this
+	// can happen when global work size has been
+	// adapted to the local work size on the host)
 	if(gid < kWidth * kHeight) {
 		// Screen in world coordinates
-		const float kImageWorldWidth = 16.f;
-		const float kImageWorldHeight = 12.f;
+		const float kImageWorldWidth = kWidth * 0.02; // Pic width / 50
+		const float kImageWorldHeight = kHeight * 0.02; // Pic height / 50
 
 		// Amount to increase each step for the ray direction
 		const float kRayXStep = kImageWorldWidth / ((float)kWidth);
