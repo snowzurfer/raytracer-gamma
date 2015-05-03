@@ -42,6 +42,9 @@ struct Sphere
   struct Material material;
 };
 
+
+
+
 struct Intersection {
   // Object which intersects with the ray
   struct Sphere object;
@@ -140,6 +143,16 @@ void setMatRefractivityIndex(struct Material *m, const float refIndex) {
 }
 
 
+bool rayPlane(struct Plane* p, struct Ray* r, float* t)
+{
+	float dotProduct = dot(r->dir,p->normal);
+	if ( dotProduct == 0){
+		return false;
+	}
+	*t = dot(p->normal,p->point-r->origin) / dotProduct ;
+
+	return *t >= 0;
+}
 
 // Intersection of a sphere with a ray; it returns if the collision
 // was found and the parameter for the distance from the ray's

@@ -33,6 +33,12 @@ namespace rtg {
     void readResult(Vec *destBuffer);
 
   private:
+    // IDs of the available platforms
+    cl_platform_id *platform_;
+
+    // IDs of the obtained device
+    cl_device_id deviceId_;
+
     // Context for the GPU
     cl_context gpuContext_;
 

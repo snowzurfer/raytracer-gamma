@@ -7,13 +7,21 @@
 #include <CL/cl.h>
 #include <cstdlib>
 #include <fstream>
+#include <chrono>
 
 
 namespace rtg {
 
   GPURaytracer::GPURaytracer(const unsigned int imgWidth,
     const unsigned int imgHeight, const float aliasFactor) :
-    Raytracer(imgWidth, imgHeight, aliasFactor) 
+    Raytracer(imgWidth, imgHeight, aliasFactor),
+    platform_(NULL), deviceId_(0),
+    gpuContext_(NULL), commandsGPU_(NULL),
+    program_(NULL), koRTG_(NULL),
+    globalWorkSize_(imgHeight * imgWidth), localWorkSize_(64),
+    dSpheres_(NULL), dLights_(NULL),
+    dPixelBuffer_(NULL)
+
   {
 
   }
@@ -39,37 +47,35 @@ namespace rtg {
 
     
     // Get all platforms
-    cl_platform_id *platform = (cl_platform_id *)malloc(sizeof(cl_platform_id)* numPlatforms);
-    err = clGetPlatformIDs(numPlatforms, platform, NULL);
+    platform_ = (cl_platform_id *)malloc(sizeof(cl_platform_id)* numPlatforms);
+    err = clGetPlatformIDs(numPlatforms, platform_, NULL);
     checkError(err, "Getting platforms");
 
 
 
-    // Define an ID for the device
-    cl_device_id deviceId = 0;
     // Secure a GPU
     for (int i = 0; i < numPlatforms; i++) {
-      err = clGetDeviceIDs(platform[i], CL_DEVICE_TYPE_GPU, 1, &deviceId, NULL);
+      err = clGetDeviceIDs(platform_[i], CL_DEVICE_TYPE_GPU, 1, &deviceId_, NULL);
       if (err == CL_SUCCESS) {
         break;
       }
     }
 
     // Once a device has been obtained, print out its info
-    err = output_device_info(deviceId);
+    err = output_device_info(deviceId_);
     checkError(err, "Printing device output");
 
 
 
     // Create a context for the GPU
-    gpuContext_ = clCreateContext(NULL, 1, &deviceId, NULL, NULL, &err);
+    gpuContext_ = clCreateContext(NULL, 1, &deviceId_, NULL, NULL, &err);
     checkError(err, "Creating context");
 
 
 
 
     // Create a command queue
-    commandsGPU_ = clCreateCommandQueue(gpuContext_, deviceId, NULL, &err);
+    commandsGPU_ = clCreateCommandQueue(gpuContext_, deviceId_, NULL, &err);
     checkError(err, "Creating command queue");
 
 
@@ -97,7 +103,7 @@ namespace rtg {
       char buffer[2048];
 
       printf("Error: Failed to build program executable!\n%s\n", err_code(err));
-      clGetProgramBuildInfo(program_, deviceId, CL_PROGRAM_BUILD_LOG, sizeof(buffer), buffer, &len);
+      clGetProgramBuildInfo(program_, deviceId_, CL_PROGRAM_BUILD_LOG, sizeof(buffer), buffer, &len);
       printf("%s\n", buffer);
 
       return;
@@ -114,13 +120,13 @@ namespace rtg {
 
 
     // Create the list of spheres and lights in device memory
-    cl_mem dSpheres_ = clCreateBuffer(gpuContext_, CL_MEM_READ_WRITE,
+    dSpheres_ = clCreateBuffer(gpuContext_, CL_MEM_READ_WRITE,
       sizeof(struct Sphere) * sphNum, NULL, &err);
     checkError(err, "Creating buffer for spheres");
-    cl_mem dLights_ = clCreateBuffer(gpuContext_, CL_MEM_READ_WRITE,
+    dLights_ = clCreateBuffer(gpuContext_, CL_MEM_READ_WRITE,
       sizeof(struct Light) * lgtNum, NULL, &err);
     checkError(err, "Creating buffer for lights");
-    cl_mem dPixelBuffer_ = clCreateBuffer(gpuContext_, CL_MEM_WRITE_ONLY,
+    dPixelBuffer_ = clCreateBuffer(gpuContext_, CL_MEM_WRITE_ONLY,
       imgW_ * imgH_ * sizeof(Vec), NULL, &err);
     checkError(err, "Creating buffer for pixels");
 
@@ -144,7 +150,7 @@ namespace rtg {
     */
     status = clGetKernelWorkGroupInfo(
       koRTG_,
-      deviceId,
+      deviceId_,
       CL_KERNEL_WORK_GROUP_SIZE,
       sizeof(cl_uint),
       &recommWorkSize,
@@ -173,8 +179,8 @@ namespace rtg {
     err |= clSetKernelArg(koRTG_, 1, sizeof(unsigned int), &sphNum);
     err |= clSetKernelArg(koRTG_, 2, sizeof(cl_mem), &dLights_);
     err |= clSetKernelArg(koRTG_, 3, sizeof(unsigned int), &lgtNum);
-    err |= clSetKernelArg(koRTG_, 4, sizeof(unsigned int), &imgH_);
-    err |= clSetKernelArg(koRTG_, 5, sizeof(unsigned int), &imgW_);
+    err |= clSetKernelArg(koRTG_, 4, sizeof(unsigned int), &imgW_);
+    err |= clSetKernelArg(koRTG_, 5, sizeof(unsigned int), &imgH_);
     err |= clSetKernelArg(koRTG_, 6, sizeof(float), &zoomFactor);
     err |= clSetKernelArg(koRTG_, 7, sizeof(float), &aliasFactor_);
     err |= clSetKernelArg(koRTG_, 8, sizeof(cl_mem), &dPixelBuffer_);
@@ -187,8 +193,6 @@ namespace rtg {
     // Error code returned from openCL calls
     int err;
 
-    printf("Enqueueing kernel...\t");
-
     err = clEnqueueNDRangeKernel(commandsGPU_, koRTG_, 1, NULL,
       &globalWorkSize_, &localWorkSize_, 0, NULL, NULL);
     checkError(err, "Enqueueing kernel");
@@ -199,6 +203,7 @@ namespace rtg {
   }
 
   void GPURaytracer::cleanup() {
+    free(platform_);
     clReleaseMemObject(dPixelBuffer_);
     clReleaseMemObject(dLights_);
     clReleaseMemObject(dSpheres_);

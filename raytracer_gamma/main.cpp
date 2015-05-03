@@ -30,9 +30,10 @@
 // Colours
 const Vec whiteCol = { 0.8f, 0.8f, 0.8f };
 const Vec lowerWhite = { 0.5f, 0.5f, 0.5f };
-const Vec redCol = { 0.8f, 0.1f, 0.1f };
-const Vec greenCol = { 0.1f, 0.8f, 0.1f };
-const Vec blueCol = { 0.1f, 0.1f, 0.8f };
+const Vec redCol = { 0.8f, 0.0f, 0.0f };
+const Vec greenCol = { 0.0f, 0.8f, 0.0f };
+const Vec blueCol = { 0.0f, 0.0f, 0.8f };
+const Vec goldCol = { 1.f, 0.843137f, 0.0f };
 
 // Setup the default scene
 void setupBaseScene(struct Sphere *spheres, struct Light *lights) {
@@ -40,7 +41,7 @@ void setupBaseScene(struct Sphere *spheres, struct Light *lights) {
   struct Material ballMaterial1; // Green
   Vec bm1Gloss; vassign(bm1Gloss, greenCol);
   Vec bm1Matte; vassign(bm1Matte, greenCol);
-  setMatOpacity(&ballMaterial1, 0.2f);
+  setMatOpacity(&ballMaterial1, 0.35f);
   setMatteGlossBalance(&ballMaterial1, 0.8f, &bm1Matte, &bm1Gloss);
   setMatRefractivityIndex(&ballMaterial1, 1.5500f);
 
@@ -53,16 +54,16 @@ void setupBaseScene(struct Sphere *spheres, struct Light *lights) {
 
   struct Material ballMaterial3; // White
   Vec bm3Gloss; vassign(bm3Gloss, whiteCol);
-  Vec bm3Matte; vassign(bm3Matte, greenCol);
-  setMatOpacity(&ballMaterial3, 0.5f);
-  setMatteGlossBalance(&ballMaterial3, 0.8f, &bm3Matte, &bm3Gloss);
+  Vec bm3Matte; vassign(bm3Matte, whiteCol);
+  setMatOpacity(&ballMaterial3, 0.6f);
+  setMatteGlossBalance(&ballMaterial3, 0.9f, &bm3Matte, &bm3Gloss);
   setMatRefractivityIndex(&ballMaterial3, 1.5500f);
 
   struct Material ballMaterial4; // Blue
-  Vec bm4Gloss; vassign(bm4Gloss, blueCol);
+  Vec bm4Gloss; vassign(bm4Gloss, goldCol);
   Vec bm4Matte; vassign(bm4Matte, blueCol);
-  setMatOpacity(&ballMaterial4, 0.7f);
-  setMatteGlossBalance(&ballMaterial4, 0.7f, &bm4Matte, &bm4Gloss);
+  setMatOpacity(&ballMaterial4, 0.8f);
+  setMatteGlossBalance(&ballMaterial4, 0.9f, &bm4Matte, &bm4Gloss);
   setMatRefractivityIndex(&ballMaterial4, 1.5500f);
 
   // Setup spheres
@@ -76,14 +77,16 @@ void setupBaseScene(struct Sphere *spheres, struct Light *lights) {
   vinit(spheres[2].pos, 2.f, -1.f, -14.f);
   spheres[2].radius = 5.f;
   spheres[3].material = ballMaterial4;
-  vinit(spheres[3].pos, 0.f, -11.f, -13.f);
+  vinit(spheres[3].pos, 0.f, -11.f, -13.5f);
   spheres[3].radius = 4.5f;
 
   // Setup light sources
   vinit(lights[0].pos, -45.f, 10.f, 85.f);
   vassign(lights[0].col, whiteCol);
-  vinit(lights[1].pos, 0.f, 2.f, 30.f);
+  vinit(lights[1].pos, -45.f, 1.f, 85.f);
   vassign(lights[1].col, whiteCol);
+  vinit(lights[2].pos, 45.f, 5.f, 70.f);
+  vassign(lights[2].col, whiteCol);
 }
 
 
@@ -114,7 +117,7 @@ int main(int argc, char** argv)
     (struct Sphere *)calloc(sphNum, sizeof(struct Sphere));
 
   // Allocate lights on the host
-  unsigned int lgtNum = 2;
+  unsigned int lgtNum = 3;
   struct Light *hLights =
     (struct Light *)calloc(lgtNum, sizeof(struct Light));
 
@@ -128,222 +131,39 @@ int main(int argc, char** argv)
   const unsigned int kImgWidth = 800;
   const unsigned int kImgHeight = 600;
   float zoomFactor = -4.f;
-  float aliasFactor = 1.f;
+  float aliasFactor = 2.f;
 
   // Create the GPU raytracer
-  //rtg::Raytracer *raytracer = new rtg::GPURaytracer(kImgWidth, kImgHeight, aliasFactor);
+  rtg::Raytracer *raytracer = 
+    new rtg::GPURaytracer(kImgWidth, kImgHeight, aliasFactor);
 
 
-  // 
-
-  // Define the constants for OCL
-  size_t globalWorkSize = kImgWidth * kImgHeight;
-  size_t localWorkSize = 64;
-
-  // Error code returned from openCL calls
-  int err;
-
-
-  cl_uint numPlatforms;
-
-  // Find number of platforms
-  err = clGetPlatformIDs(0, NULL, &numPlatforms);
-  checkError(err, "Finding platforms");
-  if (numPlatforms == 0) {
-    printf("Found 0 platforms!\n");
-    return EXIT_FAILURE;
-  }
-
-
-
-
-  // Get all platforms
-  cl_platform_id *platform = (cl_platform_id *)malloc(sizeof(cl_platform_id)* numPlatforms);
-  err = clGetPlatformIDs(numPlatforms, platform, NULL);
-  checkError(err, "Getting platforms");
-
-
-
-
-  // Define an ID for the device
-  cl_device_id deviceId = 0;
-  // Secure a GPU
-  for (int i = 0; i < numPlatforms; i++) {
-    err = clGetDeviceIDs(platform[i], CL_DEVICE_TYPE_GPU, 1, &deviceId, NULL);
-    if (err == CL_SUCCESS) {
-      break;
-    }
-  }
-
-  // Once a device has been obtained, print out its info
-  err = output_device_info(deviceId);
-  checkError(err, "Printing device output");
-  
-
-
-  // Create a context for the GPU
-  cl_context gpuContext;
-  gpuContext = clCreateContext(NULL, 1, &deviceId, NULL, NULL, &err);
-  checkError(err, "Creating context");
-
-
-
-
-  // Create a command queue
-  cl_command_queue commandsGPU;
-  commandsGPU = clCreateCommandQueue(gpuContext, deviceId, NULL, &err);
-  checkError(err, "Creating command queue");
-
-
-
-
-  // Load the kernel code
-  std::ifstream sourceFstream("raytrace_kernel.cl");
-  std::string source((std::istreambuf_iterator<char>(sourceFstream)),
-    std::istreambuf_iterator<char>());
-
-  // Create a program from the source
-  const char* str = source.c_str();
-  cl_program program;
-  program = clCreateProgramWithSource(gpuContext, 1, &str, NULL, &err);
-  checkError(err, "Creating program");
-
-
-
-
-  // Compile the program
-  err = clBuildProgram(program, 0, NULL, "-I C:\Drive\Alberto\Projects\Code\C++\raytracer_gamma\raytracer_gamma", NULL, NULL);
-    // If there were compilation errors
-    if (err != CL_SUCCESS) {
-      // Print out compilation log
-      size_t len;
-      char buffer[2048];
-
-      printf("Error: Failed to build program executable!\n%s\n", err_code(err));
-      clGetProgramBuildInfo(program, deviceId, CL_PROGRAM_BUILD_LOG, sizeof(buffer), buffer, &len);
-      printf("%s\n", buffer);
-
-      // Exit
-      return EXIT_FAILURE;
-    }
-
-
-
-
-  // Create the kernel
-  cl_kernel koRTG;
-  koRTG = clCreateKernel(program, "raytrace", &err);
-  checkError(err, "Creating kernel");
-
-
-
-
-  // Create the list of spheres and lights in device memory
-  cl_mem dSpheres = clCreateBuffer(gpuContext, CL_MEM_READ_WRITE,
-    sizeof(struct Sphere) * sphNum, NULL, &err);
-  checkError(err, "Creating buffer for spheres");
-  cl_mem dLights = clCreateBuffer(gpuContext, CL_MEM_READ_WRITE,
-    sizeof(struct Light) * lgtNum, NULL, &err);
-  checkError(err, "Creating buffer for lights");
-  cl_mem dPixelBuffer = clCreateBuffer(gpuContext, CL_MEM_WRITE_ONLY,
-    kImgWidth * kImgHeight * sizeof(Vec), NULL, &err);
-  checkError(err, "Creating buffer for pixels");
-
-  // Write data from host into device memory (fill the buffers with
-  // the host arrays)
-  err = clEnqueueWriteBuffer(commandsGPU, dSpheres, CL_TRUE, 0,
-    sizeof(struct Sphere) * sphNum, hSpheres, 0, NULL, NULL);
-  checkError(err, "Copying hSperes in dSpheres");
-  err = clEnqueueWriteBuffer(commandsGPU, dLights, CL_TRUE, 0,
-    sizeof(struct Light) * lgtNum, hLights, 0, NULL, NULL);
-  checkError(err, "Copying hLights into dLights");
-
-  cl_int   status;
-  cl_uint maxDims;
-  cl_uint recommWorkSize;
-  cl_event events[2];
-  size_t maxWorkGroupSize;
-
-  /**
-  * Query device capabilities. Maximum
-  * work item dimensions and the maximmum
-  * work item sizes
-  */
-  err = clGetDeviceInfo(
-	  deviceId,
-	  CL_DEVICE_MAX_WORK_GROUP_SIZE,
-	  sizeof(size_t),
-	  (void*)&maxWorkGroupSize,
-	  NULL);
-  checkError(err, "Getting max work group size");
-
-  status = clGetKernelWorkGroupInfo(
-    koRTG,
-    deviceId,
-    CL_KERNEL_WORK_GROUP_SIZE,
-    sizeof(cl_uint),
-    &recommWorkSize,
-    NULL);
-  checkError(err, "Getting recommended work group size");
-  printf("Recommended workgroup size for this kernel: %d\n\n", recommWorkSize);
-
+  // Setup the raytracer. This will also print out information 
+  // if in OCL mode
+  raytracer->setup(hSpheres, sphNum, hLights, lgtNum);
 
   
-  // Set the work item size to be as the one recommended by
-  // the implementation depending on the kernel itself
-  localWorkSize = recommWorkSize;
-
-  // If the global work size is not a multiple of the local
-  // work size
-  if (globalWorkSize % localWorkSize != 0) {
-    // Pad the global work size to bea multiple of the local
-    // work size
-    globalWorkSize = (globalWorkSize / localWorkSize + 1) * localWorkSize;
-  }
-
-
-
-  // Set kernel arguments
-  err = clSetKernelArg(koRTG, 0, sizeof(cl_mem), &dSpheres);
-  err |= clSetKernelArg(koRTG, 1, sizeof(unsigned int), &sphNum);
-  err |= clSetKernelArg(koRTG, 2, sizeof(cl_mem), &dLights);
-  err |= clSetKernelArg(koRTG, 3, sizeof(unsigned int), &lgtNum);
-  err |= clSetKernelArg(koRTG, 4, sizeof(unsigned int), &kImgWidth);
-  err |= clSetKernelArg(koRTG, 5, sizeof(unsigned int), &kImgHeight);
-  err |= clSetKernelArg(koRTG, 6, sizeof(float), &zoomFactor);
-  err |= clSetKernelArg(koRTG, 7, sizeof(float), &aliasFactor);
-  err |= clSetKernelArg(koRTG, 8, sizeof(cl_mem), &dPixelBuffer);
-  err |= clSetKernelArg(koRTG, 9, sizeof(struct Sphere) * sphNum, NULL);
-  err |= clSetKernelArg(koRTG, 10, sizeof(struct Light) * lgtNum, NULL);
-  checkError(err, "Setting kernel arguments");
-
   
-  printf("Enqueueing kernel...\t");
+  printf("Launching raytracing...\n");
 
-  // Start counting the time between kernel enqueuing and completion
-  std::chrono::steady_clock::time_point startTime = std::chrono::steady_clock::now();
+  // Start counting the time between raytracing start and completion
+  std::chrono::steady_clock::time_point startTime = 
+    std::chrono::steady_clock::now();
 
-  // Execute the kernel over the entire range of our 1d input data set
-  // letting the OpenCL runtime choose the work-group size
-  err = clEnqueueNDRangeKernel(commandsGPU, koRTG, 1, NULL,
-    &globalWorkSize, &localWorkSize, 0, NULL, NULL);
-  checkError(err, "Enqueueing kernel");
+  raytracer->raytrace();
 
-  // Wait for the commands in the queue to be executed
-  err = clFinish(commandsGPU);
-  checkError(err, "Waiting for commands to finish");
-
-  // Read the time after the kernel has executed
-  std::chrono::steady_clock::time_point endTime = std::chrono::steady_clock::now();
+  // Read the time after the raytracer has executed
+  std::chrono::steady_clock::time_point endTime = 
+    std::chrono::steady_clock::now();
 
   // Compute the duration
-  double kernelExecTime = std::chrono::duration_cast<std::chrono::milliseconds>(endTime - startTime).count();
+  double raytraceExecTime = std::chrono::duration_cast<std::chrono::milliseconds>(endTime - startTime).count();
 
   
 
   // Print the duration
-  printf("Kernel executed!\n");
-  printf("Exec time: %.5f ms\n\nSaving PPM...\t", kernelExecTime);
+  printf(" Raytracing completed!\n");
+  printf("Exec time: %.5f ms\n\nSaving PPM...\t", raytraceExecTime);
 
 
 
@@ -428,16 +248,7 @@ int main(int argc, char** argv)
   Vec *pixelsIntermediate = (Vec *)calloc(kImgHeight * kImgWidth, sizeof(Vec));
   //Vec *pixelsIntermediate = (Vec *)(imagePtr);
 
-  // Read the results back from the device into the host
-  err = clEnqueueReadBuffer(commandsGPU, dPixelBuffer, CL_TRUE, 0,
-	  kImgWidth * kImgHeight * sizeof(Vec), pixelsIntermediate, 0, NULL, NULL);
-  // If the reading operation didn't complete successfully
-  if (err != CL_SUCCESS) {
-    printf("Error: Failed to read output buffer!\n%s\n", err_code(err));
-
-    // Exit
-    exit(1);
-  }
+  raytracer->readResult(pixelsIntermediate);
 
   // Calculate the maximum colour value across the whole picture
   float maxColourValue = maxColourValuePixelBuffer(pixelsIntermediate,
@@ -450,18 +261,11 @@ int main(int argc, char** argv)
  
 
   // Cleanup
-  clReleaseMemObject(dPixelBuffer);
-  clReleaseMemObject(dLights);
-  clReleaseMemObject(dSpheres);
-  clReleaseProgram(program);
-  clReleaseKernel(koRTG);
-  clReleaseCommandQueue(commandsGPU);
-  clReleaseContext(gpuContext);
   // ... Also on host
 
   free(hLights);
   free(hSpheres);
-  free(platform);
+  delete raytracer;
 
 
   // Try to save a PPM picture
