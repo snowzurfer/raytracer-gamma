@@ -30,6 +30,15 @@
     <ClCompile Include="err_code.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="cpu_raytracer.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="raytrace_stack.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="algebra.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="device_picker.h">
@@ -48,9 +57,6 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="vec.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="raytraceStack.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="material.h">
@@ -81,6 +87,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="cpu_raytracer.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="raytrace_stack.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

@@ -42,12 +42,17 @@ struct Sphere
   struct Material material;
 };
 
-
+typedef struct {
+	struct Material mat;
+	Vec normal;
+	Vec point;
+} Plane;
 
 
 struct Intersection {
   // Object which intersects with the ray
-  struct Sphere object;
+  // Depending on the object 
+  __local struct Sphere *object;
 
   // Point of intersection
   Vec point;
@@ -143,16 +148,16 @@ void setMatRefractivityIndex(struct Material *m, const float refIndex) {
 }
 
 
-bool rayPlane(struct Plane* p, struct Ray* r, float* t)
-{
-	float dotProduct = dot(r->dir,p->normal);
-	if ( dotProduct == 0){
-		return false;
-	}
-	*t = dot(p->normal,p->point-r->origin) / dotProduct ;
+// bool rayPlane(struct Plane* p, struct Ray* r, float* t)
+// {
+	// float dotProduct = dot(r->dir,p->normal);
+	// if ( dotProduct == 0){
+		// return false;
+	// }
+	// *t = dot(p->normal,p->point-r->origin) / dotProduct ;
 
-	return *t >= 0;
-}
+	// return *t >= 0;
+// }
 
 // Intersection of a sphere with a ray; it returns if the collision
 // was found and the parameter for the distance from the ray's
@@ -260,7 +265,7 @@ struct Intersection *intersection)
         intersection->squaredDist = vdot(dist, dist);
 
         found = true;
-        intersection->object = *(spheres + i);
+        intersection->object = (spheres + i);
 
         // Set the newly smallest
         minT = t;
@@ -707,14 +712,14 @@ struct Ray ray, struct Material refractiveMaterial,
             // Calculate the opacity and transparency available
             // of the light ray.
             const float opacity = 
-              currSnapshot.intersection.object.material.opacity;
+              currSnapshot.intersection.object->material.opacity;
             const float transparency = 1.f - opacity;
 
             // If the object is opaque
             if (opacity > 0.f) {
               // Calculate matte colour
               Vec calcTemp; vmul(calcTemp, currSnapshot.ray.intensity,
-                currSnapshot.intersection.object.material.matteColour);
+                currSnapshot.intersection.object->material.matteColour);
               vsmul(calcTemp, opacity, calcTemp);
               Vec matteCalcResult = calculateMatte(spheres, sphNum, lights,
                 lgtNum, &currSnapshot.intersection);
@@ -805,7 +810,7 @@ struct Ray ray, struct Material refractiveMaterial,
       // The components of the colour are diminished based on the 
       // transparency available as calculated by calculateRefraction.
       Vec reflectionCol = { 1.f, 1.f, 1.f };
-      float transparency = 1.f - currSnapshot.intersection.object.material.opacity;
+      float transparency = 1.f - currSnapshot.intersection.object->material.opacity;
       float prod = transparency * currSnapshot.refractiveReflectionFactor;
       vsmul(reflectionCol, prod, reflectionCol);
 
@@ -815,7 +820,7 @@ struct Ray ray, struct Material refractiveMaterial,
       // for refraction (and therefore, reflection)
       Vec glossColContrib;
       vsmul(glossColContrib, currSnapshot.refractiveMat.opacity,
-        currSnapshot.intersection.object.material.glossColour);
+        currSnapshot.intersection.object->material.glossColour);
       vadd(reflectionCol, reflectionCol, glossColContrib);
 
       // Multiply by the intensity of the ray

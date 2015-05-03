@@ -82,11 +82,14 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="algebra.cpp" />
+    <ClCompile Include="cpu_raytracer.cpp" />
     <ClCompile Include="device_info.cpp" />
     <ClCompile Include="err_code.cpp" />
     <ClCompile Include="gpu_raytracer.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="ppm.cpp" />
+    <ClCompile Include="raytrace_stack.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="algebra.h" />
@@ -102,7 +105,7 @@
     <ClInclude Include="ray.h" />
     <ClInclude Include="cpu_raytracer.h" />
     <ClInclude Include="raytracer.h" />
-    <ClInclude Include="raytraceStack.h" />
+    <ClInclude Include="raytrace_stack.h" />
     <ClInclude Include="scene.h" />
     <ClInclude Include="sphere.h" />
     <ClInclude Include="vec.h" />
