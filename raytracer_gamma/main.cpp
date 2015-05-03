@@ -15,6 +15,7 @@
 #include <iostream>
 #include <raytracer.h>
 #include <gpu_raytracer.h>
+#include <cpu_raytracer.h>
 
 
 #ifdef __APPLE__
@@ -131,11 +132,11 @@ int main(int argc, char** argv)
   const unsigned int kImgWidth = 800;
   const unsigned int kImgHeight = 600;
   float zoomFactor = -4.f;
-  float aliasFactor = 2.f;
+  float aliasFactor = 1.f;
 
   // Create the GPU raytracer
   rtg::Raytracer *raytracer = 
-    new rtg::GPURaytracer(kImgWidth, kImgHeight, aliasFactor);
+    new rtg::CPURaytracer(kImgWidth, kImgHeight, aliasFactor);
 
 
   // Setup the raytracer. This will also print out information 
@@ -166,83 +167,6 @@ int main(int argc, char** argv)
   printf("Exec time: %.5f ms\n\nSaving PPM...\t", raytraceExecTime);
 
 
-
-  // Image
-  //float *imagePtr = (float *)malloc(globalWorkSize * sizeof(Vec));
-
-
-
-  //// Screen in world coordinates
-  //const float kImageWorldWidth = 16.f;
-  //const float kImageWorldHeight = 12.f;
-
-  //// Amount to increase each step for the ray direction
-  //const float kRayXStep = kImageWorldWidth / ((float)kScreenWidth);
-  //const float kRayYStep = kImageWorldHeight / ((float)kScreenHeight);
-  //const float aspectRatio = kImageWorldWidth / kImageWorldHeight;
-
-  //// Variables holding the current step in world coordinates
-  //float rayX = 0.f, rayY = 0.f;
-
-  //int pixelsCounter = 0;
-
-  //// Calculate size of an alias step in world coordinates
-  //const float kAliasFactorStepInv = kRayXStep / aliasFactor;
-  //// Calculate total size of samples to be taken
-  //const float kSamplesTot = aliasFactor * aliasFactor;
-  //// Also its inverse
-  //const float kSamplesTotinv = 1.f / kSamplesTot;
-
-  //for (int y = 0; y < kScreenWidth * kScreenHeight; ++y, pixelsCounter += 3) {
-  //  // Retrieve the global ID of the kernel
-  //  const unsigned gid = y;
-
-  //  
-
-  //  // Calculate world position of pixel being currently worked on
-  //  const float kPxWorldX = ((((float)(gid % kScreenWidth) - 
-  //    (kScreenWidth * 0.5f))) * kRayXStep);
-  //  const float kPxWorldY = ((kScreenHeight *0.5f) - ((float)(gid / kScreenWidth))) * kRayYStep;
-
-  //  // The ray to be shot. The vantage point (camera) is at the origin,
-  //  // and its intensity is maximum
-  //  struct Ray ray; vinit(ray.origin, 0.f, 0.f, 0.f); vinit(ray.intensity, 1.f, 1.f, 1.f);
-
-  //  // The colour of the pixel to be computed
-  //  Vec pixelCol = { 0.f, 0.f, 0.f };
-
-  //  // Mock background material
-  //  struct Material bgMaterial;
-  //  Vec black; vinit(black, 0.f, 0.f, 0.f);
-  //  setMatteGlossBalance(&bgMaterial, 0.f, &black, &black);
-  //  setMatRefractivityIndex(&bgMaterial, 1.00f);
-
-  //  // For each sample to be taken
-  //  for (int i = 0; i < aliasFactor; ++i) {
-  //    for (int j = 0; j < aliasFactor; ++j) {
-  //      // Calculate the direction of the ray
-  //      float x = (kPxWorldX + (float)(((float)j) * kAliasFactorStepInv)) * aspectRatio;
-  //      float y = (kPxWorldY + (float)(((float)i) * kAliasFactorStepInv));
-
-  //      // Set the ray's dir and normalise it
-  //      vinit(ray.dir, x, y, zoomFactor); vnorm(ray.dir);
-
-  //      // Raytrace for the current sample
-  //      Vec currentSampleCol = rayTrace(hSpheres, sphNum, hLights, lgtNum,
-  //        ray, bgMaterial, 0);
-
-  //      vsmul(currentSampleCol, kSamplesTotinv, currentSampleCol);
-
-  //      // Compute the average
-  //      vadd(pixelCol, pixelCol, currentSampleCol);
-  //    }
-  //  }
-
-  //  // Write result in destination buffer
-  //  *(imagePtr + pixelsCounter) = pixelCol.x;
-  //  *(imagePtr + pixelsCounter + 1) = pixelCol.y;
-  //  *(imagePtr + pixelsCounter + 2) = pixelCol.z;
-  //}
 
   // Create a buffer to hold the result of the computation on the device
   Vec *pixelsIntermediate = (Vec *)calloc(kImgHeight * kImgWidth, sizeof(Vec));
