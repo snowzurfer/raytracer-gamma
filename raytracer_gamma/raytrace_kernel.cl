@@ -992,6 +992,123 @@ __kernel void raytrace(
 		// Write result in destination buffer
 		vassign(dst[gid], pixelCol);
 	}
-} 
+}
 
 
+__kernel void raytraceLines( 
+	__global struct Sphere *spheres, 
+	__private const unsigned int sphNum,       
+	__global struct Light *lights,
+	__private const unsigned int lgtNum,
+	__private const unsigned int kWidth,
+	__private const unsigned int kHeight,
+	__private const float kZoom,
+	__private const float kAliasFactor,
+	__global Vec *dst,
+	__local struct Sphere *lSpheres,
+	__local struct Light *lLights)     
+{                            
+	// Retrieve the global ID of the kernel
+	const unsigned gid = get_global_id(0); 
+	
+	// Make sure that the work item is valid (this
+	// can happen when global work size has been
+	// adapted to the local work size on the host)
+	if(gid < kWidth * kHeight) {
+		// Copy contents of global memory into local using a
+		// thread for each element, either light or sphere
+		
+		// Get the local id of the work item
+		int lid = get_local_id(0);
+		
+		// If the local id is less than the number of spheres
+		if(lid < sphNum) {
+			// Copy contents of global memory into local
+			lSpheres[lid] = spheres[lid];
+		}
+		// Do the same with lights
+		if(lid < lgtNum) {
+			// Copy contents of global memory into local
+			lLights[lid] = lights[lid];
+		}
+		
+		// Synchronise the work items of the work group
+		// to be sure that when they reach this point, 
+		// the global memory has been copied into the local
+		barrier(CLK_LOCAL_MEM_FENCE);
+		
+		// Screen in world coordinates
+		const float kImageWorldWidth = kWidth * 0.02; // Pic width / 50
+		const float kImageWorldHeight = kHeight * 0.02; // Pic height / 50
+
+		// Amount to increase each step for the ray direction
+		const float kRayXStep = kImageWorldWidth / ((float)kWidth);
+		const float kRayYStep = kImageWorldHeight / ((float)kHeight);	
+		const float aspectRatio = kImageWorldWidth / kImageWorldHeight;
+		
+		// Calculate size of an alias step in world coordinates
+		const float kAliasFactorStepInv = kRayXStep / kAliasFactor;
+		// Calculate total size of samples to be taken
+		const float kSamplesTot = kAliasFactor * kAliasFactor;
+		// Also its inverse
+		const float kSamplesTotinv = 1.f / kSamplesTot;
+		
+		// Calculate the starting and ending position of the line of pixels
+		// this work item has to process
+		const unsigned int startPixel = gid * kWidth;
+		const unsigned int endPixel = startPixel + kWidth;
+		
+		// For each pixel in the line
+		for(unsigned int p = startPixel; p < endPixel; ++p) {
+		
+			// Calculate world position of pixel being currently worked on
+			// Calculate world position of pixel being currently worked on
+			const float kPxWorldX = ((((float)(p % kWidth) - 
+			  (kWidth * 0.5f))) * kRayXStep);
+			const float kPxWorldY = ((kHeight *0.5f) - ((float)(p / kWidth))) * kRayYStep;
+			
+			// The ray to be shot. The vantage point (camera) is at the origin,
+			// and its intensity is maximum
+			struct Ray ray; vinit(ray.origin, 0.f, 0.f, 0.f); vinit(ray.intensity, 1.f, 1.f, 1.f);
+			
+			// The colour of the pixel to be computed
+			Vec pixelCol = { 0.f, 0.f, 0.f };
+			
+			// Mock background material
+			struct Material bgMaterial;
+			Vec black; vinit(black, 0.f, 0.f, 0.f);
+			setMatteGlossBalance(&bgMaterial, 0.f, &black, &black);
+			setMatRefractivityIndex(&bgMaterial, 1.00f);
+			
+			// For each sample to be taken
+			for (int i = 0; i < kAliasFactor; ++i) {
+			  for (int j = 0; j < kAliasFactor; ++j) {
+				// Calculate the direction of the ray
+				float x = (kPxWorldX + (float)(((float)j) * kAliasFactorStepInv)) * aspectRatio;
+				float y = (kPxWorldY + (float)(((float)i) * kAliasFactorStepInv));
+
+				// Set the ray's dir and normalise it
+				vinit(ray.dir, x, y, kZoom); vnorm(ray.dir);
+				
+				Vec currentSample = rayTrace(
+					lSpheres,
+					sphNum,
+					lLights,
+					lgtNum,
+					ray,
+					bgMaterial,
+					0);
+				
+
+				vsmul(currentSample, kSamplesTotinv, currentSample);
+
+				// Compute the average
+				vadd(pixelCol, pixelCol, currentSample);
+				}
+			  }
+			
+			// Write result in destination buffer
+			vassign(dst[p], pixelCol);
+		}
+	}
+}

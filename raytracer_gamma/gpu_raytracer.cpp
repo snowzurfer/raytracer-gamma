@@ -113,7 +113,7 @@ namespace rtg {
 
 
     // Create the kernel
-    koRTG_ = clCreateKernel(program_, "raytraceLines", &err);
+    koRTG_ = clCreateKernel(program_, "raytrace", &err);
     checkError(err, "Creating kernel");
 
 

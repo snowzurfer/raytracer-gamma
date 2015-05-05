@@ -1,3 +1,21 @@
+
+#ifndef _ALGEBRA_KERNEL_H
+#define _ALGEBRA_KERNEL_H
+
+#include <vec.h>
+
+
+#ifndef GPU_KERNEL
+#include <math.h>
+#endif
+
+// Tolerance used in floating point comparisons
+#define TOL    (0.001f)   
+
+bool isZero(float x) {
+  return (fabs(x) < TOL);
+}
+
 int solveQuadratic(float a, float b, float c, float *roots) {
   // If the a component is zero
   if (isZero(a))  {
@@ -42,3 +60,5 @@ int solveQuadratic(float a, float b, float c, float *roots) {
     }
   }
 }
+
+#endif
