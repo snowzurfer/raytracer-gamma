@@ -13,14 +13,15 @@
 namespace rtg {
 
   GPURaytracer::GPURaytracer(const unsigned int imgWidth,
-    const unsigned int imgHeight, const float aliasFactor) :
+    const unsigned int imgHeight, const float aliasFactor,
+    const int mode) :
     Raytracer(imgWidth, imgHeight, aliasFactor),
     platform_(NULL), deviceId_(0),
     gpuContext_(NULL), commandsGPU_(NULL),
     program_(NULL), koRTG_(NULL),
     globalWorkSize_(imgHeight * imgWidth), localWorkSize_(64),
     dSpheres_(NULL), dLights_(NULL),
-    dPixelBuffer_(NULL)
+    dPixelBuffer_(NULL), mode_(mode)
 
   {
 
@@ -82,7 +83,7 @@ namespace rtg {
 
 
     // Load the kernel code
-    std::ifstream sourceFstream("raytrace_kernel.cl");
+    std::ifstream sourceFstream("kernel/raytrace_kernel.cl");
     std::string source((std::istreambuf_iterator<char>(sourceFstream)),
       std::istreambuf_iterator<char>());
 
@@ -95,7 +96,7 @@ namespace rtg {
 
 
     // Compile the program
-    err = clBuildProgram(program_, 0, NULL, "-I C:\Drive\Alberto\Projects\Code\C++\raytracer_gamma\raytracer_gamma", NULL, NULL);
+    err = clBuildProgram(program_, 0, NULL, "-I raytracer_gamma", NULL, NULL);
     // If there were compilation errors
     if (err != CL_SUCCESS) {
       // Print out compilation log
@@ -110,12 +111,28 @@ namespace rtg {
     }
 
 
+    // Depending on the mode selected
+    switch (mode_) {
+      case kModeLine: 
+      {
+        // Create the kernel
+        koRTG_ = clCreateKernel(program_, "raytraceLines", &err);
+        checkError(err, "Creating kernel");
+        globalWorkSize_ = imgH_;
 
+        break;
+      }
+      case kModeDefault: 
+      {
+        // Create the kernel
+        koRTG_ = clCreateKernel(program_, "raytrace", &err);
+        checkError(err, "Creating kernel");
 
-    // Create the kernel
-    koRTG_ = clCreateKernel(program_, "raytrace", &err);
-    checkError(err, "Creating kernel");
+        break;
+      }
+    }
 
+    
 
 
 

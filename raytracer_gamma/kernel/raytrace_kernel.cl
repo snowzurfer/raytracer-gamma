@@ -1014,7 +1014,7 @@ __kernel void raytraceLines(
 	// Make sure that the work item is valid (this
 	// can happen when global work size has been
 	// adapted to the local work size on the host)
-	if(gid < kWidth * kHeight) {
+	if(gid < kHeight) {
 		// Copy contents of global memory into local using a
 		// thread for each element, either light or sphere
 		

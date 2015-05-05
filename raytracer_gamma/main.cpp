@@ -69,7 +69,7 @@ void setupBaseScene(struct Sphere *spheres, struct Light *lights) {
 
   // Setup spheres
   spheres[0].material = ballMaterial2;
-  vinit(spheres[0].pos, -9.f, 0.f, -13.f);
+  vinit(spheres[0].pos, -50.f, 0.f, -13.f);
   spheres[0].radius = 5.f;
   spheres[1].material = ballMaterial1;
   vinit(spheres[1].pos, -3.f, 1.5f, -5.f);
@@ -94,9 +94,25 @@ void setupBaseScene(struct Sphere *spheres, struct Light *lights) {
 int main(int argc, char** argv)
 {
 
+  
+
+  // Define the scene
+  const unsigned int kImgWidth = 640;
+  const unsigned int kImgHeight = 480;
+  float zoomFactor = -4.f;
+  float aliasFactor = 2.f;
+
+  rtg::Raytracer *raytracer = NULL;
+
   // Read the parameters
   if (argc == 1) {
     // Use default settings
+    raytracer =
+      new rtg::GPURaytracer(
+      kImgWidth,
+      kImgHeight,
+      aliasFactor,
+      rtg::kModeDefault);
   }
   else if (argc == 2) {
     // Read the parameter
@@ -106,6 +122,36 @@ int main(int argc, char** argv)
     // Read the passed parameters
 
     // Read the first parameter
+    std::string first = argv[1];
+
+    // Depending on its type
+    if (first == "-ocl") {
+      // Read the second parameter
+      std::string second = argv[2];
+
+      // Depending on its type
+
+      // If default mode
+      if (second == "-d") {
+        raytracer =
+          new rtg::GPURaytracer(
+          kImgWidth, 
+          kImgHeight, 
+          aliasFactor,
+          rtg::kModeDefault);
+      }
+      // If one line per work item mode
+      else if (second == "-l") {
+        raytracer =
+          new rtg::GPURaytracer(
+          kImgWidth,
+          kImgHeight,
+          aliasFactor,
+          rtg::kModeLine);
+      }
+    }
+
+    
 
   }
   else {
@@ -124,19 +170,6 @@ int main(int argc, char** argv)
 
   // Setup the default scene
   setupBaseScene(hSpheres, hLights);
-
-
-  
-
-  // Define the scene
-  const unsigned int kImgWidth = 800;
-  const unsigned int kImgHeight = 600;
-  float zoomFactor = -4.f;
-  float aliasFactor = 1.f;
-
-  // Create the GPU raytracer
-  rtg::Raytracer *raytracer = 
-    new rtg::GPURaytracer(kImgWidth, kImgHeight, aliasFactor);
 
 
   // Setup the raytracer. This will also print out information 

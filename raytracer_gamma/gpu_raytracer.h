@@ -9,13 +9,19 @@
 
 namespace rtg {
 
+  const int kModeLine = 0;
+  const int kModeGlobal = 1;
+  const int kModeDefault = 2;
+
+
   class GPURaytracer : public Raytracer
   {
   public:
     // Ctor
     GPURaytracer(const unsigned int imgWidth,
       const unsigned int imgHeight,
-      const float aliasFactor);
+      const float aliasFactor,
+      const int mode);
 
     // Dtor
     ~GPURaytracer() {};
@@ -59,6 +65,9 @@ namespace rtg {
 
     // Device buffers
     cl_mem dSpheres_, dLights_, dPixelBuffer_;
+
+    // Which kernel to execute
+    const int mode_;
   };
 }
 // EO Namespace
