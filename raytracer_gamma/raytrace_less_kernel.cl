@@ -1,7 +1,7 @@
 #define GPU_KERNEL
 
 #include "vec.h"
-#include "algebra_kernel.h"
+#include "algebra.h"
 
 
 // EPSILON is a tolerance value for floating point roundoff error.
@@ -885,7 +885,7 @@ struct Ray ray, struct Material refractiveMaterial,
 }
 
 
-__kernel void raytrace( 
+__kernel void raytraceLines( 
 	__global struct Sphere *spheres, 
 	__private const unsigned int sphNum,       
 	__global struct Light *lights,
@@ -904,7 +904,7 @@ __kernel void raytrace(
 	// Make sure that the work item is valid (this
 	// can happen when global work size has been
 	// adapted to the local work size on the host)
-	if(gid < kWidth * kHeight) {
+	if(gid < kHeight) {
 		// Copy contents of global memory into local using a
 		// thread for each element, either light or sphere
 		
@@ -942,56 +942,61 @@ __kernel void raytrace(
 		const float kSamplesTot = kAliasFactor * kAliasFactor;
 		// Also its inverse
 		const float kSamplesTotinv = 1.f / kSamplesTot;
+		// For every pixel this working item has to process
+		for(int p = startPoint; p < kWidth; ++p) {
+			// Select the starting point of this working item in the whole set
+			int startPoint = gid * kWidth;
 		
-		// Calculate world position of pixel being currently worked on
-		// Calculate world position of pixel being currently worked on
-		const float kPxWorldX = ((((float)(gid % kWidth) - 
-		  (kWidth * 0.5f))) * kRayXStep);
-		const float kPxWorldY = ((kHeight *0.5f) - ((float)(gid / kWidth))) * kRayYStep;
-		
-		// The ray to be shot. The vantage point (camera) is at the origin,
-		// and its intensity is maximum
-		struct Ray ray; vinit(ray.origin, 0.f, 0.f, 0.f); vinit(ray.intensity, 1.f, 1.f, 1.f);
-		
-		// The colour of the pixel to be computed
-		Vec pixelCol = { 0.f, 0.f, 0.f };
-		
-		// Mock background material
-		struct Material bgMaterial;
-		Vec black; vinit(black, 0.f, 0.f, 0.f);
-		setMatteGlossBalance(&bgMaterial, 0.f, &black, &black);
-		setMatRefractivityIndex(&bgMaterial, 1.00f);
-		
-		// For each sample to be taken
-		for (int i = 0; i < kAliasFactor; ++i) {
-		  for (int j = 0; j < kAliasFactor; ++j) {
-			// Calculate the direction of the ray
-			float x = (kPxWorldX + (float)(((float)j) * kAliasFactorStepInv)) * aspectRatio;
-			float y = (kPxWorldY + (float)(((float)i) * kAliasFactorStepInv));
-
-			// Set the ray's dir and normalise it
-			vinit(ray.dir, x, y, kZoom); vnorm(ray.dir);
+			// Calculate world position of pixel being currently worked on
+			// Calculate world position of pixel being currently worked on
+			const float kPxWorldX = ((((float)(startPoint % kWidth) - 
+			  (kWidth * 0.5f))) * kRayXStep);
+			const float kPxWorldY = ((kHeight *0.5f) - ((float)(startPoint / kWidth))) * kRayYStep;
 			
-			Vec currentSample = rayTrace(
-				lSpheres,
-				sphNum,
-				lLights,
-				lgtNum,
-				ray,
-				bgMaterial,
-				0);
+			// The ray to be shot. The vantage point (camera) is at the origin,
+			// and its intensity is maximum
+			struct Ray ray; vinit(ray.origin, 0.f, 0.f, 0.f); vinit(ray.intensity, 1.f, 1.f, 1.f);
 			
-
-			vsmul(currentSample, kSamplesTotinv, currentSample);
-
-			// Compute the average
-			vadd(pixelCol, pixelCol, currentSample);
-			}
-		  }
+			
 		
-		// Write result in destination buffer
-		vassign(dst[gid], pixelCol);
+			// The colour of the pixel to be computed
+			Vec pixelCol = { 0.f, 0.f, 0.f };
+			
+			// Mock background material
+			struct Material bgMaterial;
+			Vec black; vinit(black, 0.f, 0.f, 0.f);
+			setMatteGlossBalance(&bgMaterial, 0.f, &black, &black);
+			setMatRefractivityIndex(&bgMaterial, 1.00f);
+			
+			// For each sample to be taken
+			for (int i = 0; i < kAliasFactor; ++i) {
+			  for (int j = 0; j < kAliasFactor; ++j) {
+				// Calculate the direction of the ray
+				float x = (kPxWorldX + (float)(((float)j) * kAliasFactorStepInv)) * aspectRatio;
+				float y = (kPxWorldY + (float)(((float)i) * kAliasFactorStepInv));
+
+				// Set the ray's dir and normalise it
+				vinit(ray.dir, x, y, kZoom); vnorm(ray.dir);
+				
+				Vec currentSample = rayTrace(
+					lSpheres,
+					sphNum,
+					lLights,
+					lgtNum,
+					ray,
+					bgMaterial,
+					0);
+				
+
+				vsmul(currentSample, kSamplesTotinv, currentSample);
+
+				// Compute the average
+				vadd(pixelCol, pixelCol, currentSample);
+				}
+			  }
+			
+			// Write result in destination buffer
+			vassign(dst[startPoint], pixelCol);
+		}
 	}
 } 
-
-

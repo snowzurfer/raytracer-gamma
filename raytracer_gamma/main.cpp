@@ -136,7 +136,7 @@ int main(int argc, char** argv)
 
   // Create the GPU raytracer
   rtg::Raytracer *raytracer = 
-    new rtg::CPURaytracer(kImgWidth, kImgHeight, aliasFactor);
+    new rtg::GPURaytracer(kImgWidth, kImgHeight, aliasFactor);
 
 
   // Setup the raytracer. This will also print out information 

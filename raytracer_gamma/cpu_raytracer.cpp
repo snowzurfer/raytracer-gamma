@@ -2,6 +2,7 @@
 // Includes
 #include <cpu_raytracer.h>
 #include <cstdlib>
+#include <cstring>
 
 // Functions which raytrace on CPU; mostly similar to the
 // ones used for the kernel
@@ -9,7 +10,7 @@
 // of an intersection point
 struct Ray calculateReflection(
 struct Intersection *intersection,
-struct Ray incidentRay);
+struct Ray *incidentRay);
 
 // Determine the matte refraction contribution to the illumination
 // of an intersection point
@@ -530,81 +531,81 @@ struct Ray ray, struct Material refractiveMaterial,
     }
       // After refraction recursion
     case 1: {
-              vadd(currSnapshot.colour, colourSum, currSnapshot.colour);
+      vadd(currSnapshot.colour, colourSum, currSnapshot.colour);
 
-              // Two sources of shiny reflection must be considered:
-              // a. Reflection caused by refraction
-              // b. Glossy part
+      // Two sources of shiny reflection must be considered:
+      // a. Reflection caused by refraction
+      // b. Glossy part
 
-              // a.
-              // The refractive part causes reflection of all colours equally.
-              // The components of the colour are diminished based on the 
-              // transparency available as calculated by calculateRefraction.
-              Vec reflectionCol = { 1.f, 1.f, 1.f };
-              float transparency = 1.f - currSnapshot.intersection.object.material.opacity;
-              float prod = transparency * currSnapshot.refractiveReflectionFactor;
-              vsmul(reflectionCol, prod, reflectionCol);
-
-
-              // Add the glossy part of the reflection. This contribution
-              // is diminished by the part of the light which wasn't available
-              // for refraction (and therefore, reflection)
-              Vec glossColContrib;
-              vsmul(glossColContrib, currSnapshot.refractiveMat.opacity,
-                currSnapshot.intersection.object.material.glossColour);
-              vadd(reflectionCol, reflectionCol, glossColContrib);
-
-              // Multiply by the intensity of the ray
-              vmul(reflectionCol, currSnapshot.ray.intensity, reflectionCol);
+      // a.
+      // The refractive part causes reflection of all colours equally.
+      // The components of the colour are diminished based on the 
+      // transparency available as calculated by calculateRefraction.
+      Vec reflectionCol = { 1.f, 1.f, 1.f };
+      float transparency = 1.f - currSnapshot.intersection.object.material.opacity;
+      float prod = transparency * currSnapshot.refractiveReflectionFactor;
+      vsmul(reflectionCol, prod, reflectionCol);
 
 
+      // Add the glossy part of the reflection. This contribution
+      // is diminished by the part of the light which wasn't available
+      // for refraction (and therefore, reflection)
+      Vec glossColContrib;
+      vsmul(glossColContrib, currSnapshot.refractiveMat.opacity,
+        currSnapshot.intersection.object.material.glossColour);
+      vadd(reflectionCol, reflectionCol, glossColContrib);
 
-              // If the contribution is significant
-              if (isSignificant(&reflectionCol)) {
-                // Compute a ray to pass in the function
-                struct Ray reflectionRay;
-                vassign(reflectionRay.dir, currSnapshot.ray.dir);
-                vassign(reflectionRay.intensity, reflectionCol);
-                vassign(reflectionRay.origin, currSnapshot.ray.origin);
+      // Multiply by the intensity of the ray
+      vmul(reflectionCol, currSnapshot.ray.intensity, reflectionCol);
 
 
-                // Calculate the reflected ray
-                struct Ray reflectedRay = calculateReflection(
-                  &currSnapshot.intersection,
-                  reflectionRay);
 
-                // Store the state of the current snapshot
-                currSnapshot.stage = 2;
+      // If the contribution is significant
+      if (isSignificant(&reflectionCol)) {
+        // Compute a ray to pass in the function
+        struct Ray reflectionRay;
+        vassign(reflectionRay.dir, currSnapshot.ray.dir);
+        vassign(reflectionRay.intensity, reflectionCol);
+        vassign(reflectionRay.origin, currSnapshot.ray.origin);
 
-                // Push the current state
-                rtStackPush(&snapshotsStack, &currSnapshot);
 
-                // Create a new snaphot for simulating recursion
-                RtSnapshot newSnapshot;
-                newSnapshot.ray = reflectedRay;
-                newSnapshot.traceDepth = traceDepth + 1;
-                newSnapshot.stage = 0;
-                vinit(newSnapshot.colour, 0.f, 0.f, 0.f);
-                newSnapshot.refractiveMat = currSnapshot.refractiveMat;
+        // Calculate the reflected ray
+        struct Ray reflectedRay = calculateReflection(
+          &currSnapshot.intersection,
+          &reflectionRay);
 
-                // Push the newly created snapshot
-                rtStackPush(&snapshotsStack, &newSnapshot);
+        // Store the state of the current snapshot
+        currSnapshot.stage = 2;
 
-                // Execute a new loop
+        // Push the current state
+        //rtStackPush(&snapshotsStack, &currSnapshot);
 
-              }
+        //// Create a new snaphot for simulating recursion
+        ////RtSnapshot newSnapshot;
+        //currSnapshot.ray = reflectedRay;
+        //currSnapshot.traceDepth = traceDepth + 1;
+        //currSnapshot.stage = 0;
+        //vinit(currSnapshot.colour, 0.f, 0.f, 0.f);
+        //// currSnapshot.refractiveMat;
 
-              vassign(colourSum, currSnapshot.colour);
-              break;
+        //// Push the newly created snapshot
+        //rtStackPush(&snapshotsStack, &currSnapshot);
+
+        // Execute a new loop
+
+      }
+
+      vassign(colourSum, currSnapshot.colour);
+      break;
     }
     case 2: {
-              // Add the result of the reflection to the total
-              vadd(currSnapshot.colour, colourSum, currSnapshot.colour);
+      // Add the result of the reflection to the total
+      vadd(currSnapshot.colour, colourSum, currSnapshot.colour);
 
-              // One iteration is finished, therefore save the result into the
-              // main variable
-              vassign(colourSum, currSnapshot.colour);
-              break;
+      // One iteration is finished, therefore save the result into the
+      // main variable
+      vassign(colourSum, currSnapshot.colour);
+      break;
     }
 
     }
@@ -796,14 +797,14 @@ struct Material *targetMaterial,
 
 struct Ray calculateReflection(
 struct Intersection *intersection,
-struct Ray incidentRay)
+struct Ray *incidentRay)
 {
 
   // Calculate the direction of the reflected ray
-  const float perp = 2.f * (vdot(incidentRay.dir, intersection->normal));
+  const float perp = 2.f * (vdot(incidentRay->dir, intersection->normal));
   Vec perpTimesNormal;  vsmul(perpTimesNormal, perp, intersection->normal);
   Vec reflectedDir;
-  vsub(reflectedDir, incidentRay.dir, perpTimesNormal);
+  vsub(reflectedDir, incidentRay->dir, perpTimesNormal);
   // Normalise it
   vnorm(reflectedDir);
 
@@ -812,7 +813,7 @@ struct Ray incidentRay)
   struct Ray reflectedRay;
   vassign(reflectedRay.dir, reflectedDir);
   vassign(reflectedRay.origin, intersection->point);
-  vassign(reflectedRay.intensity, incidentRay.intensity);
+  vassign(reflectedRay.intensity, incidentRay->intensity);
   // Shift the ray by a little amount from the surface it collided with
   Vec smallShift; vsmul(smallShift, kSmallShift, reflectedRay.dir);
   vadd(reflectedRay.origin, reflectedRay.origin, smallShift);
@@ -910,8 +911,18 @@ namespace rtg {
           vinit(ray.dir, x, y, zoomFactor); vnorm(ray.dir);
 
           // Raytrace for the current sample
-          Vec currentSampleCol = rayTrace(spheres_, sphNum_, lights_, lgtNum_,
-            ray, bgMaterial, 0);
+          Vec currentSampleCol = rayTrace(
+            spheres_, 
+            sphNum_, 
+            lights_, 
+            lgtNum_,
+            ray, 
+            bgMaterial, 
+            0);
+
+          if (currentSampleCol.x > 0.f) {
+            int lol = 0;
+          }
 
           vsmul(currentSampleCol, kSamplesTotinv, currentSampleCol);
 
@@ -933,7 +944,7 @@ namespace rtg {
   }
 
   void CPURaytracer::readResult(Vec *destBuffer) {
-    destBuffer = (Vec *)imagePtr_;
+    memcpy(destBuffer, (Vec *)imagePtr_, sizeof(Vec) * imgH_ * imgW_);
   }
 
 }
