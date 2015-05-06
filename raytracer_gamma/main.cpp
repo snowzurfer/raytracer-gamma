@@ -42,29 +42,29 @@ void setupBaseScene(struct Sphere *spheres, struct Light *lights) {
   struct Material ballMaterial1; // Green
   Vec bm1Gloss; vassign(bm1Gloss, greenCol);
   Vec bm1Matte; vassign(bm1Matte, greenCol);
-  setMatOpacity(&ballMaterial1, 0.35f);
-  setMatteGlossBalance(&ballMaterial1, 0.8f, &bm1Matte, &bm1Gloss);
+  setMatOpacity(&ballMaterial1, 0.7f);
+  setMatteGlossBalance(&ballMaterial1, 0.2f, &bm1Matte, &bm1Gloss);
   setMatRefractivityIndex(&ballMaterial1, 1.5500f);
 
   struct Material ballMaterial2; // Red
   Vec bm2Gloss; vassign(bm2Gloss, redCol);
   Vec bm2Matte; vassign(bm2Matte, redCol);
-  setMatOpacity(&ballMaterial2, 0.9f);
-  setMatteGlossBalance(&ballMaterial2, 0.01f, &bm2Matte, &bm2Gloss);
+  setMatOpacity(&ballMaterial2, 0.4f);
+  setMatteGlossBalance(&ballMaterial2, 0.1f, &bm2Matte, &bm2Gloss);
   setMatRefractivityIndex(&ballMaterial2, 1.5500f);
 
   struct Material ballMaterial3; // White
   Vec bm3Gloss; vassign(bm3Gloss, whiteCol);
   Vec bm3Matte; vassign(bm3Matte, whiteCol);
-  setMatOpacity(&ballMaterial3, 0.6f);
-  setMatteGlossBalance(&ballMaterial3, 0.9f, &bm3Matte, &bm3Gloss);
+  setMatOpacity(&ballMaterial3, 0.7f);
+  setMatteGlossBalance(&ballMaterial3, 0.2f, &bm3Matte, &bm3Gloss);
   setMatRefractivityIndex(&ballMaterial3, 1.5500f);
 
   struct Material ballMaterial4; // Blue
   Vec bm4Gloss; vassign(bm4Gloss, goldCol);
   Vec bm4Matte; vassign(bm4Matte, blueCol);
-  setMatOpacity(&ballMaterial4, 0.8f);
-  setMatteGlossBalance(&ballMaterial4, 0.9f, &bm4Matte, &bm4Gloss);
+  setMatOpacity(&ballMaterial4, 0.7f);
+  setMatteGlossBalance(&ballMaterial4, 0.1f, &bm4Matte, &bm4Gloss);
   setMatRefractivityIndex(&ballMaterial4, 1.5500f);
 
   // Setup spheres
@@ -108,10 +108,11 @@ int main(int argc, char** argv)
   if (argc == 1) {
     // Use default settings
     raytracer =
-      new rtg::CPURaytracer(
+      new rtg::GPURaytracer(
       kImgWidth,
       kImgHeight,
-      aliasFactor);
+      aliasFactor,
+      rtg::kModeDefault);
   }
   else if (argc == 2) {
     // Read the parameter
@@ -204,7 +205,7 @@ int main(int argc, char** argv)
 
   
   
-  printf("Launching raytracing...\n");
+  printf("Launching raytracing...\t");
 
   // Start counting the time between raytracing start and completion
   std::chrono::steady_clock::time_point startTime = 
@@ -222,8 +223,8 @@ int main(int argc, char** argv)
   
 
   // Print the duration
-  printf(" Raytracing completed!\n");
-  printf("Exec time: %.5f ms\n\nSaving PPM...\t", raytraceExecTime);
+  printf("Raytracing completed!\n\n");
+  printf("  Exec time: %.5f ms\n\nSaving PPM...\t", raytraceExecTime);
 
 
 
@@ -256,7 +257,7 @@ int main(int argc, char** argv)
   free(pixelsIntermediate);
   //free(imagePtr);
  
-  printf("Saved PPM!\nEnter a char, then ENTER to exit...\n");
+  printf("Saved PPM!\n\nPress ENTER to exit...\n");
 
   getchar();
 

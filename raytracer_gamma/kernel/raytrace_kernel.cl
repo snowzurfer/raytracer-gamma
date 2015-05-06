@@ -63,7 +63,7 @@ struct Intersection {
   float squaredDist;
 };
 
-#define RTSTACK_MAXSIZE 5
+#define RTSTACK_MAXSIZE 6
 
 // RtSnapshot
 typedef struct
@@ -535,6 +535,7 @@ struct Ray incidentRay,
 
     struct Material bgMaterial;
     Vec black; vinit(black, 0.f, 0.f, 0.f);
+	setMatOpacity(&bgMaterial, 1.f);
     setMatteGlossBalance(&bgMaterial, 0.f, &black, &black);
     setMatRefractivityIndex(&bgMaterial, 1.00f);
 
@@ -701,180 +702,184 @@ struct Ray ray, struct Material refractiveMaterial,
     // (There is code to be processed both before a recursion call
     // happens and after it has returned)
     switch (currSnapshot.stage) {
-    // Before recursion for refraction
-    case 0: {
-        if (calcIntersection(spheres, sphNum, &currSnapshot.ray, 
-          &currSnapshot.intersection)) {
-        // Check for end of recursion condition
-        if (currSnapshot.traceDepth <= kMaxTraceDepth) {
-          // If the ray still has significant intensity
-          if (isSignificant(&currSnapshot.ray.intensity)) {
-            // Calculate the opacity and transparency available
-            // of the light ray.
-            const float opacity = 
-              currSnapshot.intersection.object->material.opacity;
-            const float transparency = 1.f - opacity;
+		// Before recursion for refraction
+		case 0: {
+			if (calcIntersection(spheres, sphNum, &currSnapshot.ray, 
+			  &currSnapshot.intersection)) {
+			// Check for end of recursion condition
+			if (currSnapshot.traceDepth <= kMaxTraceDepth) {
+			  // If the ray still has significant intensity
+			  if (isSignificant(&currSnapshot.ray.intensity)) {
+				// Calculate the opacity and transparency available
+				// of the light ray.
+				const float opacity = 
+				  currSnapshot.intersection.object->material.opacity;
+				const float transparency = 1.f - opacity;
 
-            // If the object is opaque
-            if (opacity > 0.f) {
-              // Calculate matte colour
-              Vec calcTemp; vmul(calcTemp, currSnapshot.ray.intensity,
-                currSnapshot.intersection.object->material.matteColour);
-              vsmul(calcTemp, opacity, calcTemp);
-              Vec matteCalcResult = calculateMatte(spheres, sphNum, lights,
-                lgtNum, &currSnapshot.intersection);
+				// If the object is opaque
+				if (opacity > 0.f) {
+				  // Calculate matte colour
+				  Vec calcTemp; vmul(calcTemp, currSnapshot.ray.intensity,
+					currSnapshot.intersection.object->material.matteColour);
+				  vsmul(calcTemp, opacity, calcTemp);
+				  Vec matteCalcResult = calculateMatte(spheres, sphNum, lights,
+					lgtNum, &currSnapshot.intersection);
 
-              if (isSignificant(&matteCalcResult)) {
-                int lol = 0;
-              }
+				  if (isSignificant(&matteCalcResult)) {
+					int lol = 0;
+				  }
 
-              vmul(calcTemp, matteCalcResult, calcTemp);
+				  vmul(calcTemp, matteCalcResult, calcTemp);
 
-              vadd(currSnapshot.colour, calcTemp, currSnapshot.colour);
+				  vadd(currSnapshot.colour, calcTemp, currSnapshot.colour);
 
-            }
+				}
 
-            // Variable to hold the fraction of light which is reflected.
-            // It's calculated by the calculateRefraction function if there
-            // is transparency.
-            float refractiveReflectionFactor = 0.f;
-
-
-
-            // If there is transparency
-            if (transparency > 0.f) {
-              // Calculate a ray to pass in the calculate refraction method
-              struct Ray refractionRay;
-              vassign(refractionRay.dir, currSnapshot.ray.dir);
-              vsmul(refractionRay.intensity, transparency, currSnapshot.ray.intensity);
-              vassign(refractionRay.origin, currSnapshot.ray.origin);
-
-              struct Material targetMaterial;
-
-              // Calculate the refraction
-              struct Ray refractedRay = calculateRefraction(
-                spheres,
-                sphNum,
-                lights,
-                lgtNum,
-                &currSnapshot.intersection,
-                refractionRay,
-                currSnapshot.traceDepth,
-                &currSnapshot.refractiveMat,
-                &targetMaterial,
-                &refractiveReflectionFactor);
-
-              // Store the state of the current snapshot
-              currSnapshot.refractiveReflectionFactor = 
-                refractiveReflectionFactor;
-              currSnapshot.stage = 1;
-
-              //Push the current state
-              rtStackPush(&snapshotsStack, &currSnapshot);
-
-              // Create a new snaphot for simulating recursion
-              RtSnapshot newSnapshot;
-              newSnapshot.ray = refractedRay;
-              newSnapshot.traceDepth = traceDepth + 1;
-              newSnapshot.stage = 0;
-              vinit(newSnapshot.colour, 0.f, 0.f, 0.f);
-              newSnapshot.refractiveMat = targetMaterial;
-              
-              // Push the newly created snapshot
-              rtStackPush(&snapshotsStack, &newSnapshot);
-
-            }
-
-            vassign(colourSum, currSnapshot.colour);
-          }
-        }
-      }
-      else {
-        // Return background colour
-        vmul(colourSum, currSnapshot.ray.intensity, 
-          currSnapshot.refractiveMat.matteColour);
-      }
-
-      break;
-    }
-    // After refraction recursion
-    case 1: {
-      vadd(currSnapshot.colour, colourSum, currSnapshot.colour);
-
-      // Two sources of shiny reflection must be considered:
-      // a. Reflection caused by refraction
-      // b. Glossy part
-
-      // a.
-      // The refractive part causes reflection of all colours equally.
-      // The components of the colour are diminished based on the 
-      // transparency available as calculated by calculateRefraction.
-      Vec reflectionCol = { 1.f, 1.f, 1.f };
-      float transparency = 1.f - currSnapshot.intersection.object->material.opacity;
-      float prod = transparency * currSnapshot.refractiveReflectionFactor;
-      vsmul(reflectionCol, prod, reflectionCol);
-
-
-      // Add the glossy part of the reflection. This contribution
-      // is diminished by the part of the light which wasn't available
-      // for refraction (and therefore, reflection)
-      Vec glossColContrib;
-      vsmul(glossColContrib, currSnapshot.refractiveMat.opacity,
-        currSnapshot.intersection.object->material.glossColour);
-      vadd(reflectionCol, reflectionCol, glossColContrib);
-
-      // Multiply by the intensity of the ray
-      vmul(reflectionCol, currSnapshot.ray.intensity, reflectionCol);
+				// Variable to hold the fraction of light which is reflected.
+				// It's calculated by the calculateRefraction function if there
+				// is transparency.
+				float refractiveReflectionFactor = 0.f;
 
 
 
-      // If the contribution is significant
-      if (isSignificant(&reflectionCol)) {
-       // Compute a ray to pass in the function
-       struct Ray reflectionRay;
-       vassign(reflectionRay.dir, currSnapshot.ray.dir);
-       vassign(reflectionRay.intensity, reflectionCol);
-       vassign(reflectionRay.origin, currSnapshot.ray.origin);
+				// If there is transparency
+				if (transparency > 0.f) {
+				  // Calculate a ray to pass in the calculate refraction method
+				  struct Ray refractionRay;
+				  vassign(refractionRay.dir, currSnapshot.ray.dir);
+				  vsmul(refractionRay.intensity, transparency, currSnapshot.ray.intensity);
+				  vassign(refractionRay.origin, currSnapshot.ray.origin);
+
+				  struct Material targetMaterial;
+
+				  // Calculate the refraction
+				  struct Ray refractedRay = calculateRefraction(
+					spheres,
+					sphNum,
+					lights,
+					lgtNum,
+					&currSnapshot.intersection,
+					refractionRay,
+					currSnapshot.traceDepth,
+					&currSnapshot.refractiveMat,
+					&targetMaterial,
+					&refractiveReflectionFactor);
+
+				  // Store the state of the current snapshot
+				  currSnapshot.refractiveReflectionFactor = 
+					refractiveReflectionFactor;
+				  currSnapshot.stage = 1;
+
+				  //Push the current state
+				  rtStackPush(&snapshotsStack, &currSnapshot);
+
+				  // Create a new snaphot for simulating recursion
+				  RtSnapshot newSnapshot;
+				  newSnapshot.ray = refractedRay;
+				  newSnapshot.traceDepth = traceDepth + 1;
+				  newSnapshot.stage = 0;
+				  vinit(newSnapshot.colour, 0.f, 0.f, 0.f);
+				  newSnapshot.refractiveMat = targetMaterial;
+				  
+				  // Push the newly created snapshot
+				  rtStackPush(&snapshotsStack, &newSnapshot);
+					
+				  // Execute another loop
+				  continue;
+				}
+			  }
+			}
+		  }
+		  else {
+			// Return background colour
+			vmul(currSnapshot.colour, currSnapshot.ray.intensity, 
+			  currSnapshot.refractiveMat.matteColour);
+		  }
+
+		  break;
+		}
+		// After refraction recursion
+		case 1: {
+		  // Add previously calculated refraction colour to the one
+          // of the previous matte
+		  vadd(currSnapshot.colour, colourSum, currSnapshot.colour);
+
+		  // Two sources of shiny reflection must be considered:
+		  // a. Reflection caused by refraction
+		  // b. Glossy part
+
+		  // a.
+		  // The refractive part causes reflection of all colours equally.
+		  // The components of the colour are diminished based on the 
+		  // transparency available as calculated by calculateRefraction.
+		  Vec reflectionCol = { 1.f, 1.f, 1.f };
+		  float transparency = 1.f - currSnapshot.intersection.object->material.opacity;
+		  float prod = transparency * currSnapshot.refractiveReflectionFactor;
+		  vsmul(reflectionCol, prod, reflectionCol);
 
 
-       // Calculate the reflected ray
-       struct Ray reflectedRay = calculateReflection(
-         &currSnapshot.intersection,
-         &reflectionRay);
+		  // Add the glossy part of the reflection. This contribution
+		  // is diminished by the part of the light which wasn't available
+		  // for refraction (and therefore, reflection)
+		  Vec glossColContrib;
+		  vsmul(glossColContrib, currSnapshot.refractiveMat.opacity,
+			currSnapshot.intersection.object->material.glossColour);
+		  vadd(reflectionCol, reflectionCol, glossColContrib);
 
-       // Store the state of the current snapshot
-       currSnapshot.stage = 2;
+		  // Multiply by the intensity of the ray
+		  vmul(reflectionCol, currSnapshot.ray.intensity, reflectionCol);
 
-       // Push the current state
-       rtStackPush(&snapshotsStack, &currSnapshot);
 
-       // // Create a new snaphot for simulating recursion
-       //RtSnapshot newSnapshot;
-       currSnapshot.ray = reflectedRay;
-       currSnapshot.traceDepth = traceDepth + 1;
-       currSnapshot.stage = 0;
-       vinit(currSnapshot.colour, 0.f, 0.f, 0.f);
-       // currSnapshot.refractiveMat;
 
-       // Push the newly created snapshot
-       rtStackPush(&snapshotsStack, &currSnapshot);
-      }
+		  // If the contribution is significant
+		  if (isSignificant(&reflectionCol)) {
+		   // Compute a ray to pass in the function
+		   struct Ray reflectionRay;
+		   vassign(reflectionRay.dir, currSnapshot.ray.dir);
+		   vassign(reflectionRay.intensity, reflectionCol);
+		   vassign(reflectionRay.origin, currSnapshot.ray.origin);
 
-      vassign(colourSum, currSnapshot.colour);
 
-      break;
-    }
-    case 2: {
-      // Add the result of the reflection to the total
-      vadd(currSnapshot.colour, colourSum, currSnapshot.colour);
+		   // Calculate the reflected ray
+		   struct Ray reflectedRay = calculateReflection(
+			 &currSnapshot.intersection,
+			 &reflectionRay);
 
-      // One iteration is finished, therefore save the result into the
-      // main variable
-      vassign(colourSum, currSnapshot.colour);
-      break;
-    }
+		   // Store the state of the current snapshot
+		   currSnapshot.stage = 2;
+
+		   // Push the current state
+		   rtStackPush(&snapshotsStack, &currSnapshot);
+
+		   // // Create a new snaphot for simulating recursion
+		   //RtSnapshot newSnapshot;
+		   currSnapshot.ray = reflectedRay;
+		   currSnapshot.traceDepth = traceDepth + 1;
+		   currSnapshot.stage = 0;
+		   vinit(currSnapshot.colour, 0.f, 0.f, 0.f);
+		   // currSnapshot.refractiveMat;
+
+		   // Push the newly created snapshot
+		   rtStackPush(&snapshotsStack, &currSnapshot);
+		   
+		   // Execute a new loop
+           continue;
+           break;
+		  }
+
+		  break;
+		}
+		case 2: {
+		  // Add the result of the reflection to the total
+		  vadd(currSnapshot.colour, colourSum, currSnapshot.colour);
+
+		  break;
+		}
 
      }
+	 
+	// Add the computation of the current colour to the sum
+    vadd(colourSum, colourSum, currSnapshot.colour);
 	
 	loop = !(rtStackIsEmpty(&snapshotsStack));
   }
@@ -959,6 +964,7 @@ __kernel void raytrace(
 		// Mock background material
 		struct Material bgMaterial;
 		Vec black; vinit(black, 0.f, 0.f, 0.f);
+		setMatOpacity(&bgMaterial, 1.f);
 		setMatteGlossBalance(&bgMaterial, 0.f, &black, &black);
 		setMatRefractivityIndex(&bgMaterial, 1.00f);
 		
@@ -1077,6 +1083,7 @@ __kernel void raytraceLines(
 			// Mock background material
 			struct Material bgMaterial;
 			Vec black; vinit(black, 0.f, 0.f, 0.f);
+			setMatOpacity(&bgMaterial, 1.f);
 			setMatteGlossBalance(&bgMaterial, 0.f, &black, &black);
 			setMatRefractivityIndex(&bgMaterial, 1.00f);
 			
