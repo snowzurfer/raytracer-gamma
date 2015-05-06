@@ -16,6 +16,7 @@
 #include <raytracer.h>
 #include <gpu_raytracer.h>
 #include <cpu_raytracer.h>
+#include <sstream>
 
 
 #ifdef __APPLE__
@@ -104,10 +105,10 @@ int main(int argc, char** argv)
   
 
   // Define the scene
-  const unsigned int kImgWidth = 640;
-  const unsigned int kImgHeight = 480;
+  const unsigned int kImgWidth = 800;
+  const unsigned int kImgHeight = 600;
   float zoomFactor = -4.f;
-  float aliasFactor = 2.f;
+  float aliasFactor = 1.f;
 
   rtg::Raytracer *raytracer = NULL;
 
@@ -121,14 +122,22 @@ int main(int argc, char** argv)
       aliasFactor,
       rtg::kModeDefault);
   }
-  else if (argc == 2) {
+  else if (argc == 3) {
     // Read the parameter
 
     // Read the first parameter
     std::string first = argv[1];
 
+    // Alias factor
+    std::stringstream sstream;
+    sstream << first;
+    sstream >> aliasFactor;
+
+    // Read the 2nd parameter
+    std::string second = argv[2];
+
     // Depending on its type
-    if (first == "-cpu") {
+    if (second == "-cpu") {
       raytracer =
         new rtg::CPURaytracer(
         kImgWidth,
@@ -136,21 +145,29 @@ int main(int argc, char** argv)
         aliasFactor);
     }
   }
-  else if (argc == 3) {
+  else if (argc == 4) {
     // Read the passed parameters
 
     // Read the first parameter
     std::string first = argv[1];
 
+    // Alias factor
+    std::stringstream sstream;
+    sstream << first;
+    sstream >> aliasFactor;
+
+    // Read the 2nd parameter
+    std::string second = argv[2];
+
     // Depending on its type
-    if (first == "-ocl") {
-      // Read the second parameter
-      std::string second = argv[2];
+    if (second == "-ocl") {
+      // Read the third parameter
+      std::string third = argv[3];
 
       // Depending on its type
 
       // If default mode
-      if (second == "-d") {
+      if (third == "-d") {
         raytracer =
           new rtg::GPURaytracer(
           kImgWidth, 
@@ -159,7 +176,7 @@ int main(int argc, char** argv)
           rtg::kModeDefault);
       }
       // If one line per work item mode
-      else if (second == "-l") {
+      else if (third == "-l") {
         raytracer =
           new rtg::GPURaytracer(
           kImgWidth,
@@ -168,14 +185,14 @@ int main(int argc, char** argv)
           rtg::kModeLine);
       }
     }
-    else if (first == "-cpu") {
+    else if (second == "-cpu") {
       // Read the second parameter
-      std::string second = argv[2];
+      std::string third = argv[3];
 
       // Depending on its type
 
       // If default mode
-      if (second == "-d") {
+      if (third == "-d") {
         raytracer =
           new rtg::CPURaytracer(
           kImgWidth,
@@ -183,6 +200,9 @@ int main(int argc, char** argv)
           aliasFactor);
       }
 
+    }
+    else {
+      printf("Wrong commands!\n");
     }
 
     
@@ -245,6 +265,8 @@ int main(int argc, char** argv)
   float maxColourValue = maxColourValuePixelBuffer(pixelsIntermediate,
     kImgWidth * kImgHeight);
 
+  printf("\nMaxColVal: %f\n", maxColourValue);
+
 
   using rtg::RGB;
   // Cast the buffer to the type accepted by the savePPM function
@@ -260,7 +282,7 @@ int main(int argc, char** argv)
 
 
   // Try to save a PPM picture
-  rtg::savePPM(pixels, "testPPM.ppm", kImgWidth, kImgHeight, maxColourValue);
+  rtg::savePPM(pixels, "raytracePPM.ppm", kImgWidth, kImgHeight, maxColourValue);
   free(pixelsIntermediate);
   //free(imagePtr);
  

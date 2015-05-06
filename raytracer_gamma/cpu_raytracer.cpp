@@ -5,32 +5,6 @@
 #include <cstring>
 #include <cstdio>
 
-// Functions which raytrace on CPU; mostly similar to the
-// ones used for the kernel
-// Determine the matte reflection contribution to the illumination
-// of an intersection point
-struct Ray calculateReflection(
-struct Intersection *intersection,
-struct Ray *incidentRay);
-
-// Determine the matte refraction contribution to the illumination
-// of an intersection point
-struct Ray calculateRefraction(
-#ifdef GPU_KERNEL
-  OCL_GLOBAL_BUFFER
-#endif
-struct Sphere *spheres, const unsigned int sphNum,
-#ifdef GPU_KERNEL
-  OCL_GLOBAL_BUFFER
-#endif
-struct Light *lights, const unsigned int lgtNum,
-struct Intersection *intersection,
-struct Ray incidentRay,
-  int traceDepth,
-  const struct Material *refractiveMaterial,
-struct Material *targetMaterial,
-  float *outReflectionFactor);
-
 
 void setMatMatte(struct Material *m, const Vec *col) {
   vassign(m->matteColour, *col);
@@ -359,8 +333,8 @@ float polarisedReflection(
 
   const float left = n1 * cosA1;
   const float right = n2 * cosA2;
-  double numerator = left - right;
-  double denominator = left + right;
+  float numerator = left - right;
+  float denominator = left + right;
 
   // Square the denominator
   denominator *= denominator;

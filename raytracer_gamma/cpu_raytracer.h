@@ -201,7 +201,7 @@ struct Material *targetMaterial,
 
 struct Ray calculateReflection(
 struct Intersection *intersection,
-struct Ray incidentRay);
+struct Ray *incidentRay);
 
 
 // Class

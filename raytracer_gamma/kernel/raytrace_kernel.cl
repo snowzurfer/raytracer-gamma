@@ -455,7 +455,6 @@ struct Ray calculateReflection(
 struct Intersection *intersection,
 struct Ray *incidentRay)
 {
-
   // Calculate the direction of the reflected ray
   const float perp = 2.f * (vdot(incidentRay->dir, intersection->normal));
   Vec perpTimesNormal;  vsmul(perpTimesNormal, perp, intersection->normal);
@@ -535,7 +534,7 @@ struct Ray incidentRay,
 
     struct Material bgMaterial;
     Vec black; vinit(black, 0.f, 0.f, 0.f);
-	setMatOpacity(&bgMaterial, 1.f);
+    setMatOpacity(&bgMaterial, 1.f);
     setMatteGlossBalance(&bgMaterial, 0.f, &black, &black);
     setMatRefractivityIndex(&bgMaterial, 1.00f);
 
@@ -569,7 +568,7 @@ struct Ray incidentRay,
     *outReflectionFactor = 1.f;
     // Return a zero contribution
     Vec contrib; vinit(contrib, 0.f, 0.f, 0.f);
-    
+
   }
 
   // Since there is some refracted light, determine its direction.
@@ -651,8 +650,6 @@ struct Ray incidentRay,
   vassign(refractedRay.origin, intersection->point);
   vassign(refractedRay.dir, refractionDir);
   // Shift the ray by a little amount from the surface it collided with
-  /*Vec smallShift; vsmul(smallShift, kSmallShift, refractedRay.dir);
-  vadd(refractedRay.origin, refractedRay.origin, smallShift);*/
 
   return refractedRay;
 }
@@ -690,26 +687,24 @@ struct Ray ray, struct Material refractiveMaterial,
   rtStackPush(&snapshotsStack, &currSnapshot);
 
   bool loop = !(rtStackIsEmpty(&snapshotsStack));
-  
-  
-  // While the stack is not empty
+   // While the stack is not empty
   while (loop) {
-	  // Read top / pop an element from the stack
-	  currSnapshot = *rtStackTop(&snapshotsStack);
-	  rtStackPop(&snapshotsStack);
+    // Read top / pop an element from the stack
+    currSnapshot = *rtStackTop(&snapshotsStack);
+    rtStackPop(&snapshotsStack);
 
     // Depending on the stage of the recursion
     // (There is code to be processed both before a recursion call
     // happens and after it has returned)
     switch (currSnapshot.stage) {
-		// Before recursion for refraction
-		case 0: {
-			if (calcIntersection(spheres, sphNum, &currSnapshot.ray, 
-			  &currSnapshot.intersection)) {
-			// Check for end of recursion condition
-			if (currSnapshot.traceDepth <= kMaxTraceDepth) {
-			  // If the ray still has significant intensity
-			  if (isSignificant(&currSnapshot.ray.intensity)) {
+      // Before recursion for refraction
+      case 0: {
+        if (calcIntersection(spheres, sphNum, &currSnapshot.ray,
+          &currSnapshot.intersection)) {
+          // Check for end of recursion condition
+          if (currSnapshot.traceDepth < kMaxTraceDepth) {
+            // If the ray still has significant intensity
+            if (isSignificant(&currSnapshot.ray.intensity)) {
 				// Calculate the opacity and transparency available
 				// of the light ray.
 				const float opacity = 
@@ -776,7 +771,7 @@ struct Ray ray, struct Material refractiveMaterial,
 				  // Create a new snaphot for simulating recursion
 				  RtSnapshot newSnapshot;
 				  newSnapshot.ray = refractedRay;
-				  newSnapshot.traceDepth = traceDepth + 1;
+				  newSnapshot.traceDepth = currSnapshot.traceDepth + 1;
 				  newSnapshot.stage = 0;
 				  vinit(newSnapshot.colour, 0.f, 0.f, 0.f);
 				  newSnapshot.refractiveMat = targetMaterial;
@@ -786,6 +781,7 @@ struct Ray ray, struct Material refractiveMaterial,
 					
 				  // Execute another loop
 				  continue;
+				  break;
 				}
 			  }
 			}
@@ -854,7 +850,7 @@ struct Ray ray, struct Material refractiveMaterial,
 		   // // Create a new snaphot for simulating recursion
 		   //RtSnapshot newSnapshot;
 		   currSnapshot.ray = reflectedRay;
-		   currSnapshot.traceDepth = traceDepth + 1;
+		   currSnapshot.traceDepth = currSnapshot.traceDepth + 1;
 		   currSnapshot.stage = 0;
 		   vinit(currSnapshot.colour, 0.f, 0.f, 0.f);
 		   // currSnapshot.refractiveMat;
