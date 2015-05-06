@@ -524,7 +524,7 @@ struct Ray ray, struct Material refractiveMaterial,
         }
         else {
           // Return background colour
-          vmul(colourSum, currSnapshot.ray.intensity,
+          vmul(currSnapshot.colour, currSnapshot.ray.intensity,
             currSnapshot.refractiveMat.matteColour);
         }
 
@@ -615,6 +615,9 @@ struct Ray ray, struct Material refractiveMaterial,
       }
 
     }
+
+    // Assign the computation of the current colour to the sum
+    vassign(colourSum, currSnapshot.colour);
 
     loop = !(rtStackIsEmpty(&snapshotsStack));
   }
