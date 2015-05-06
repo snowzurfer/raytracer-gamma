@@ -69,7 +69,7 @@ void setupBaseScene(struct Sphere *spheres, struct Light *lights) {
 
   // Setup spheres
   spheres[0].material = ballMaterial2;
-  vinit(spheres[0].pos, -50.f, 0.f, -13.f);
+  vinit(spheres[0].pos, -10.f, 0.f, -13.f);
   spheres[0].radius = 5.f;
   spheres[1].material = ballMaterial1;
   vinit(spheres[1].pos, -3.f, 1.5f, -5.f);
@@ -100,7 +100,7 @@ int main(int argc, char** argv)
   const unsigned int kImgWidth = 640;
   const unsigned int kImgHeight = 480;
   float zoomFactor = -4.f;
-  float aliasFactor = 2.f;
+  float aliasFactor = 1.f;
 
   rtg::Raytracer *raytracer = NULL;
 
@@ -117,6 +117,17 @@ int main(int argc, char** argv)
   else if (argc == 2) {
     // Read the parameter
 
+    // Read the first parameter
+    std::string first = argv[1];
+
+    // Depending on its type
+    if (first == "-cpu") {
+      raytracer =
+        new rtg::CPURaytracer(
+        kImgWidth,
+        kImgHeight,
+        aliasFactor);
+    }
   }
   else if (argc == 3) {
     // Read the passed parameters
@@ -149,6 +160,22 @@ int main(int argc, char** argv)
           aliasFactor,
           rtg::kModeLine);
       }
+    }
+    else if (first == "-cpu") {
+      // Read the second parameter
+      std::string second = argv[2];
+
+      // Depending on its type
+
+      // If default mode
+      if (second == "-d") {
+        raytracer =
+          new rtg::CPURaytracer(
+          kImgWidth,
+          kImgHeight,
+          aliasFactor);
+      }
+
     }
 
     
