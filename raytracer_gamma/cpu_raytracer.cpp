@@ -437,7 +437,7 @@ struct Ray ray, struct Material refractiveMaterial,
         if (calcIntersection(spheres, sphNum, &currSnapshot.ray,
           &currSnapshot.intersection)) {
           // Check for end of recursion condition
-          if (currSnapshot.traceDepth <= kMaxTraceDepth) {
+          if (currSnapshot.traceDepth < kMaxTraceDepth) {
             // If the ray still has significant intensity
             if (isSignificant(&currSnapshot.ray.intensity)) {
               // Calculate the opacity and transparency available
@@ -502,7 +502,7 @@ struct Ray ray, struct Material refractiveMaterial,
                 // Create a new snapshot for simulating recursion
                 RtSnapshot newSnapshot;
                 newSnapshot.ray = refractedRay;
-                newSnapshot.traceDepth = traceDepth + 1;
+                newSnapshot.traceDepth = currSnapshot.traceDepth + 1;
                 newSnapshot.stage = 0;
                 vinit(newSnapshot.colour, 0.f, 0.f, 0.f);
                 newSnapshot.refractiveMat = targetMaterial;
@@ -511,11 +511,78 @@ struct Ray ray, struct Material refractiveMaterial,
                 rtStackPush(&snapshotsStack, &newSnapshot);
 
                 // Execute a new loop
+                continue;
                 break;
               }
 
-              vassign(colourSum, currSnapshot.colour);
+
+
+              // Two sources of shiny reflection must be considered:
+              // a. Reflection caused by refraction
+              // b. Glossy part
+
+              // a.
+              // The refractive part causes reflection of all colours equally.
+              // The components of the colour are diminished based on the 
+              // transparency available as calculated by calculateRefraction.
+              Vec reflectionCol = { 1.f, 1.f, 1.f };
+              float prod = transparency * currSnapshot.refractiveReflectionFactor;
+              vsmul(reflectionCol, prod, reflectionCol);
+
+
+              // Add the glossy part of the reflection. This contribution
+              // is diminished by the part of the light which wasn't available
+              // for refraction (and therefore, reflection)
+              Vec glossColContrib;
+              vsmul(glossColContrib, currSnapshot.refractiveMat.opacity,
+                currSnapshot.intersection.object.material.glossColour);
+              vadd(reflectionCol, reflectionCol, glossColContrib);
+
+              // Multiply by the intensity of the ray
+              vmul(reflectionCol, currSnapshot.ray.intensity, reflectionCol);
+
+
+              // If the contribution is significant
+              if (isSignificant(&reflectionCol)) {
+                // Compute a ray to pass in the function
+                struct Ray reflectionRay;
+                vassign(reflectionRay.dir, currSnapshot.ray.dir);
+                vassign(reflectionRay.intensity, reflectionCol);
+                vassign(reflectionRay.origin, currSnapshot.ray.origin);
+
+
+                // Calculate the reflected ray
+                struct Ray reflectedRay = calculateReflection(
+                  &currSnapshot.intersection,
+                  &reflectionRay);
+
+                // Store the state of the current snapshot
+                //currSnapshot.stage = 2;
+
+                //// Push the current state
+                //rtStackPush(&snapshotsStack, &currSnapshot);
+
+                //// Create a new snaphot for simulating recursion
+                //RtSnapshot newSnapshot;
+                //newSnapshot.ray = reflectedRay;
+                //newSnapshot.traceDepth = currSnapshot.traceDepth + 1;
+                //newSnapshot.stage = 0;
+                //vinit(newSnapshot.colour, 0.f, 0.f, 0.f);
+                //newSnapshot.refractiveMat = currSnapshot.refractiveMat;
+                //newSnapshot.refractiveReflectionFactor = currSnapshot.refractiveReflectionFactor;
+
+                //// Push the newly created snapshot
+                //rtStackPush(&snapshotsStack, &newSnapshot);
+
+                //// Execute a new loop
+                //continue;
+                break;
+              }
+
             }
+          }
+          else {
+            int lol = 0;
           }
         }
         else {
@@ -529,6 +596,8 @@ struct Ray ray, struct Material refractiveMaterial,
       }
         // After refraction recursion
       case 1: {
+        // Add previously calculated refraction colour to the one
+        // of the previous matte
         vadd(currSnapshot.colour, colourSum, currSnapshot.colour);
 
         // Two sources of shiny reflection must be considered:
@@ -557,55 +626,50 @@ struct Ray ray, struct Material refractiveMaterial,
         vmul(reflectionCol, currSnapshot.ray.intensity, reflectionCol);
 
 
-
         // If the contribution is significant
         //if (isSignificant(&reflectionCol)) {
         //  // Compute a ray to pass in the function
-        //  //struct Ray reflectionRay;
-        //  //vassign(reflectionRay.dir, currSnapshot.ray.dir);
-        //  //vassign(reflectionRay.intensity, reflectionCol);
-        //  //vassign(reflectionRay.origin, currSnapshot.ray.origin);
+        //  struct Ray reflectionRay;
+        //  vassign(reflectionRay.dir, currSnapshot.ray.dir);
+        //  vassign(reflectionRay.intensity, reflectionCol);
+        //  vassign(reflectionRay.origin, currSnapshot.ray.origin);
 
 
-        //  //// Calculate the reflected ray
-        //  //struct Ray reflectedRay = calculateReflection(
-        //  //  &currSnapshot.intersection,
-        //  //  &reflectionRay);
+        //  // Calculate the reflected ray
+        //  struct Ray reflectedRay = calculateReflection(
+        //    &currSnapshot.intersection,
+        //    &reflectionRay);
 
-        //  //// Store the state of the current snapshot
-        //  //currSnapshot.stage = 2;
+        //  // Store the state of the current snapshot
+        //  currSnapshot.stage = 2;
 
-        //  //// Push the current state
-        //  //rtStackPush(&snapshotsStack, &currSnapshot);
+        //  // Push the current state
+        //  rtStackPush(&snapshotsStack, &currSnapshot);
 
-        //  //// Create a new snaphot for simulating recursion
-        //  ////RtSnapshot newSnapshot;
-        //  //currSnapshot.ray = reflectedRay;
-        //  //currSnapshot.traceDepth = traceDepth + 1;
-        //  //currSnapshot.stage = 0;
-        //  //vinit(currSnapshot.colour, 0.f, 0.f, 0.f);
-        //  //// currSnapshot.refractiveMat;
+        //  // Create a new snaphot for simulating recursion
+        //  RtSnapshot newSnapshot;
+        //  newSnapshot.ray = reflectedRay;
+        //  newSnapshot.traceDepth = currSnapshot.traceDepth + 1;
+        //  newSnapshot.stage = 0;
+        //  vinit(newSnapshot.colour, 0.f, 0.f, 0.f);
+        //  newSnapshot.refractiveMat = currSnapshot.refractiveMat;
+        //  newSnapshot.refractiveReflectionFactor = currSnapshot.refractiveReflectionFactor;
 
-        //  //// Push the newly created snapshot
-        //  ////rtStackPush(&snapshotsStack, &currSnapshot);
+        //  // Push the newly created snapshot
+        //  rtStackPush(&snapshotsStack, &newSnapshot);
 
-        //  //// Execute a new loop
+        //  // Execute a new loop
         //  continue;
         //  break;
         //}
 
-        vassign(colourSum, currSnapshot.colour);
         break;
       }
       case 2: {
         // Add the result of the reflection to the total
         vadd(currSnapshot.colour, colourSum, currSnapshot.colour);
 
-        // One iteration is finished, therefore save the result into the
-        // main variable
-        vassign(colourSum, currSnapshot.colour);
-
-        printf("case2\n");
+        //printf("case2\n");
 
         break;
       }
@@ -820,8 +884,8 @@ struct Ray *incidentRay)
   vassign(reflectedRay.origin, intersection->point);
   vassign(reflectedRay.intensity, incidentRay->intensity);
   // Shift the ray by a little amount from the surface it collided with
-  Vec smallShift; vsmul(smallShift, kSmallShift, reflectedRay.dir);
-  vadd(reflectedRay.origin, reflectedRay.origin, smallShift);
+ /* Vec smallShift; vsmul(smallShift, kSmallShift, reflectedRay.dir);
+  vadd(reflectedRay.origin, reflectedRay.origin, smallShift);*/
 
   // Trace the ray in the new direction
   return reflectedRay;
