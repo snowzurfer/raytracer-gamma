@@ -46,15 +46,7 @@ namespace rtg {
         b = static_cast<unsigned char>
           (std::min(1.f, pixels[i].b) * 255.f / maxColourVal);
         
-        if (r > 0 && r < 225) {
-          r += 5;
-        }
-        if (g > 0 && g < 225) {
-          g += 5;
-        }
-        if (b > 0 && b < 225) {
-          b += 5;
-        }
+       
 
         // Write the values
         ofs << r << g << b;

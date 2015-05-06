@@ -603,7 +603,7 @@ struct Ray ray, struct Material refractiveMaterial,
       }
       case 2: {
         // Add the result of the reflection to the total
-        vadd(currSnapshot.colour, colourSum, currSnapshot.colour);
+        //vadd(currSnapshot.colour, colourSum, currSnapshot.colour);
 
         //printf("case2\n");
 
@@ -795,8 +795,6 @@ struct Material *targetMaterial,
   vassign(refractedRay.origin, intersection->point);
   vassign(refractedRay.dir, refractionDir);
   // Shift the ray by a little amount from the surface it collided with
-  Vec smallShift; vsmul(smallShift, kSmallShift, refractedRay.dir);
-  vadd(refractedRay.origin, refractedRay.origin, smallShift);
 
   return refractedRay;
 }

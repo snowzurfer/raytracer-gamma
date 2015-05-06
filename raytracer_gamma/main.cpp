@@ -40,39 +40,46 @@ const Vec goldCol = { 1.f, 0.843137f, 0.0f };
 void setupBaseScene(struct Sphere *spheres, struct Light *lights) {
   // Setup materials
   struct Material ballMaterial1; // Green
-  Vec bm1Gloss; vassign(bm1Gloss, greenCol);
-  Vec bm1Matte; vassign(bm1Matte, greenCol);
-  setMatOpacity(&ballMaterial1, 0.8f);
+  Vec bm1Gloss; vassign(bm1Gloss, whiteCol);
+  Vec bm1Matte; vassign(bm1Matte, whiteCol);
+  setMatOpacity(&ballMaterial1, 0.25f);
   setMatteGlossBalance(&ballMaterial1, 0.05f, &bm1Matte, &bm1Gloss);
   setMatRefractivityIndex(&ballMaterial1, 1.5500f);
 
   struct Material ballMaterial2; // Red
-  Vec bm2Gloss; vassign(bm2Gloss, redCol);
+  Vec bm2Gloss; vassign(bm2Gloss, whiteCol);
   Vec bm2Matte; vassign(bm2Matte, redCol);
   setMatOpacity(&ballMaterial2, 0.9f);
-  setMatteGlossBalance(&ballMaterial2, 0.2f, &bm2Matte, &bm2Gloss);
+  setMatteGlossBalance(&ballMaterial2, 0.1f, &bm2Matte, &bm2Gloss);
   setMatRefractivityIndex(&ballMaterial2, 1.5500f);
 
   struct Material ballMaterial3; // White
-  Vec bm3Gloss; vassign(bm3Gloss, lowerWhite);
-  Vec bm3Matte; vassign(bm3Matte, lowerWhite);
-  setMatOpacity(&ballMaterial3, 0.9f);
-  setMatteGlossBalance(&ballMaterial3, 0.4f, &bm3Matte, &bm3Gloss);
+  Vec bm3Gloss; vassign(bm3Gloss, whiteCol);
+  Vec bm3Matte; vassign(bm3Matte, greenCol);
+  setMatOpacity(&ballMaterial3, 0.8f);
+  setMatteGlossBalance(&ballMaterial3, 0.2f, &bm3Matte, &bm3Gloss);
   setMatRefractivityIndex(&ballMaterial3, 1.5500f);
 
   struct Material ballMaterial4; // Blue
-  Vec bm4Gloss; vassign(bm4Gloss, goldCol);
+  Vec bm4Gloss; vassign(bm4Gloss, blueCol);
   Vec bm4Matte; vassign(bm4Matte, blueCol);
   setMatOpacity(&ballMaterial4, 0.9f);
-  setMatteGlossBalance(&ballMaterial4, 0.1f, &bm4Matte, &bm4Gloss);
+  setMatteGlossBalance(&ballMaterial4, 0.8f, &bm4Matte, &bm4Gloss);
   setMatRefractivityIndex(&ballMaterial4, 1.5500f);
+
+  struct Material ballMaterial5; // Gold
+  Vec bm5Gloss; vassign(bm5Gloss, whiteCol);
+  Vec bm5Matte; vassign(bm5Matte, goldCol);
+  setMatOpacity(&ballMaterial5, 0.9f);
+  setMatteGlossBalance(&ballMaterial5, 0.3f, &bm5Matte, &bm5Gloss);
+  setMatRefractivityIndex(&ballMaterial5, 1.5500f);
 
   // Setup spheres
   spheres[0].material = ballMaterial2;
   vinit(spheres[0].pos, -10.f, 0.f, -13.f);
   spheres[0].radius = 5.f;
-  spheres[1].material = ballMaterial1;
-  vinit(spheres[1].pos, -1.f, 1.5f, -5.f);
+  spheres[1].material = ballMaterial5;
+  vinit(spheres[1].pos, -3.f, 1.5f, -5.f);
   spheres[1].radius = 2.f;
   spheres[2].material = ballMaterial3;
   vinit(spheres[2].pos, 2.f, -1.f, -14.f);
@@ -82,11 +89,11 @@ void setupBaseScene(struct Sphere *spheres, struct Light *lights) {
   spheres[3].radius = 4.5f;
 
   // Setup light sources
-  vinit(lights[0].pos, -45.f, 10.f, 85.f);
+  vinit(lights[0].pos, -45.f, 10.f, 50.f);
   vassign(lights[0].col, whiteCol);
-  vinit(lights[1].pos, -45.f, 1.f, 85.f);
+  vinit(lights[1].pos, -30.f, 1.f, 50.f);
   vassign(lights[1].col, whiteCol);
-  vinit(lights[2].pos, 45.f, 5.f, 70.f);
+  vinit(lights[2].pos, 10.f, -8.f, 50.f);
   vassign(lights[2].col, whiteCol);
 }
 
@@ -108,10 +115,11 @@ int main(int argc, char** argv)
   if (argc == 1) {
     // Use default settings
     raytracer =
-      new rtg::CPURaytracer(
+      new rtg::GPURaytracer(
       kImgWidth,
       kImgHeight,
-      aliasFactor);
+      aliasFactor,
+      rtg::kModeDefault);
   }
   else if (argc == 2) {
     // Read the parameter

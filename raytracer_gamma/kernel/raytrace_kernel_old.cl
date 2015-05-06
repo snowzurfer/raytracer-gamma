@@ -871,7 +871,7 @@ struct Ray ray, struct Material refractiveMaterial,
 		}
 		case 2: {
 		  // Add the result of the reflection to the total
-		  //vadd(currSnapshot.colour, colourSum, currSnapshot.colour);
+		  vadd(currSnapshot.colour, colourSum, currSnapshot.colour);
 
 		  break;
 		}
