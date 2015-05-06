@@ -42,28 +42,28 @@ void setupBaseScene(struct Sphere *spheres, struct Light *lights) {
   struct Material ballMaterial1; // Green
   Vec bm1Gloss; vassign(bm1Gloss, greenCol);
   Vec bm1Matte; vassign(bm1Matte, greenCol);
-  setMatOpacity(&ballMaterial1, 0.7f);
-  setMatteGlossBalance(&ballMaterial1, 0.2f, &bm1Matte, &bm1Gloss);
+  setMatOpacity(&ballMaterial1, 0.8f);
+  setMatteGlossBalance(&ballMaterial1, 0.05f, &bm1Matte, &bm1Gloss);
   setMatRefractivityIndex(&ballMaterial1, 1.5500f);
 
   struct Material ballMaterial2; // Red
   Vec bm2Gloss; vassign(bm2Gloss, redCol);
   Vec bm2Matte; vassign(bm2Matte, redCol);
-  setMatOpacity(&ballMaterial2, 0.4f);
-  setMatteGlossBalance(&ballMaterial2, 0.1f, &bm2Matte, &bm2Gloss);
+  setMatOpacity(&ballMaterial2, 0.9f);
+  setMatteGlossBalance(&ballMaterial2, 0.2f, &bm2Matte, &bm2Gloss);
   setMatRefractivityIndex(&ballMaterial2, 1.5500f);
 
   struct Material ballMaterial3; // White
-  Vec bm3Gloss; vassign(bm3Gloss, whiteCol);
-  Vec bm3Matte; vassign(bm3Matte, whiteCol);
-  setMatOpacity(&ballMaterial3, 0.7f);
-  setMatteGlossBalance(&ballMaterial3, 0.2f, &bm3Matte, &bm3Gloss);
+  Vec bm3Gloss; vassign(bm3Gloss, lowerWhite);
+  Vec bm3Matte; vassign(bm3Matte, lowerWhite);
+  setMatOpacity(&ballMaterial3, 0.9f);
+  setMatteGlossBalance(&ballMaterial3, 0.4f, &bm3Matte, &bm3Gloss);
   setMatRefractivityIndex(&ballMaterial3, 1.5500f);
 
   struct Material ballMaterial4; // Blue
   Vec bm4Gloss; vassign(bm4Gloss, goldCol);
   Vec bm4Matte; vassign(bm4Matte, blueCol);
-  setMatOpacity(&ballMaterial4, 0.7f);
+  setMatOpacity(&ballMaterial4, 0.9f);
   setMatteGlossBalance(&ballMaterial4, 0.1f, &bm4Matte, &bm4Gloss);
   setMatRefractivityIndex(&ballMaterial4, 1.5500f);
 
@@ -72,7 +72,7 @@ void setupBaseScene(struct Sphere *spheres, struct Light *lights) {
   vinit(spheres[0].pos, -10.f, 0.f, -13.f);
   spheres[0].radius = 5.f;
   spheres[1].material = ballMaterial1;
-  vinit(spheres[1].pos, -3.f, 1.5f, -5.f);
+  vinit(spheres[1].pos, -1.f, 1.5f, -5.f);
   spheres[1].radius = 2.f;
   spheres[2].material = ballMaterial3;
   vinit(spheres[2].pos, 2.f, -1.f, -14.f);
@@ -100,7 +100,7 @@ int main(int argc, char** argv)
   const unsigned int kImgWidth = 640;
   const unsigned int kImgHeight = 480;
   float zoomFactor = -4.f;
-  float aliasFactor = 1.f;
+  float aliasFactor = 2.f;
 
   rtg::Raytracer *raytracer = NULL;
 
@@ -108,11 +108,10 @@ int main(int argc, char** argv)
   if (argc == 1) {
     // Use default settings
     raytracer =
-      new rtg::GPURaytracer(
+      new rtg::CPURaytracer(
       kImgWidth,
       kImgHeight,
-      aliasFactor,
-      rtg::kModeDefault);
+      aliasFactor);
   }
   else if (argc == 2) {
     // Read the parameter
@@ -259,7 +258,7 @@ int main(int argc, char** argv)
  
   printf("Saved PPM!\n\nPress ENTER to exit...\n");
 
-  getchar();
+  //getchar();
 
   return 0;
 }

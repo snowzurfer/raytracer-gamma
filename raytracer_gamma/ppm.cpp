@@ -34,23 +34,26 @@ namespace rtg {
       ofs << "P6\n" << width << " " << height << "\n255\n";
       // Create temp variables to store 8-bit values of each color component
       unsigned char r, g, b;
+
       // Loop over each pixel in the image, clamp it and convert to byte format
       for (int i = 0; i < width * height; ++i) {
-        r = static_cast<unsigned char>
-          (std::min(1.f, pixels[i].r) * 255 / maxColourVal);
-        g = static_cast<unsigned char>
-          (std::min(1.f, pixels[i].g) * 255 / maxColourVal);
-        b = static_cast<unsigned char>
-          (std::min(1.f, pixels[i].b) * 255 / maxColourVal);
 
-        if (r > 0.f) {
-          int lol = 0;
+
+        r = static_cast<unsigned char>
+          (std::min(1.f, pixels[i].r) * 255.f / maxColourVal);
+        g = static_cast<unsigned char>
+          (std::min(1.f, pixels[i].g) * 255.f / maxColourVal);
+        b = static_cast<unsigned char>
+          (std::min(1.f, pixels[i].b) * 255.f / maxColourVal);
+        
+        if (r > 0 && r < 225) {
+          r += 5;
         }
-        if (g > 0.f) {
-          int lol = 0;
+        if (g > 0 && g < 225) {
+          g += 5;
         }
-        if (g > 0.f) {
-          int lol = 0;
+        if (b > 0 && b < 225) {
+          b += 5;
         }
 
         // Write the values
