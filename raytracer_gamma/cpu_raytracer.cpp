@@ -455,10 +455,6 @@ struct Ray ray, struct Material refractiveMaterial,
                 Vec matteCalcResult = calculateMatte(spheres, sphNum, lights,
                   lgtNum, &currSnapshot.intersection);
 
-                if (isSignificant(&matteCalcResult)) {
-                  int lol = 0;
-                }
-
                 vmul(calcTemp, matteCalcResult, calcTemp);
 
                 vadd(currSnapshot.colour, calcTemp, currSnapshot.colour);
